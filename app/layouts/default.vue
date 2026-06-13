@@ -22,20 +22,12 @@ const allLinks: AppNavItem[][] = [[{
   onSelect: () => {
     open.value = false
   }
-}, {
-  label: 'Inbox',
-  icon: 'i-lucide-inbox',
-  to: '/inbox',
-  badge: '4',
-  permission: 'inbox.ver',
-  onSelect: () => {
-    open.value = false
-  }
-}, {
-  label: 'Customers',
-  icon: 'i-lucide-users',
-  to: '/customers',
-  permission: 'clientes.ver',
+},
+{
+  label: 'Técnicos',
+  icon: 'i-lucide-hard-hat',
+  to: '/technicians',
+  permission: 'tecnicos.ver',
   onSelect: () => {
     open.value = false
   }
@@ -61,15 +53,7 @@ const allLinks: AppNavItem[][] = [[{
     }
   }]
 }, {
-  label: 'Técnicos',
-  icon: 'i-lucide-hard-hat',
-  to: '/technicians',
-  permission: 'tecnicos.ver',
-  onSelect: () => {
-    open.value = false
-  }
-}, {
-  label: 'Usuários e Papéis',
+  label: 'Usuários e Permissões',
   icon: 'i-lucide-shield-check',
   to: '/settings/users',
   type: 'trigger',
@@ -83,7 +67,7 @@ const allLinks: AppNavItem[][] = [[{
       open.value = false
     }
   }, {
-    label: 'Papéis',
+    label: 'Permissões',
     to: '/settings/roles',
     permission: 'roles.ver',
     onSelect: () => {
@@ -94,7 +78,7 @@ const allLinks: AppNavItem[][] = [[{
   label: 'Settings',
   to: '/settings',
   icon: 'i-lucide-settings',
-  defaultOpen: true,
+  defaultOpen: false,
   type: 'trigger',
   children: [{
     label: 'General',
@@ -122,17 +106,20 @@ const allLinks: AppNavItem[][] = [[{
       open.value = false
     }
   }]
-}], [{
-  label: 'Feedback',
-  icon: 'i-lucide-message-circle',
-  to: 'https://github.com/nuxt-ui-templates/dashboard',
-  target: '_blank'
-}, {
-  label: 'Help & Support',
-  icon: 'i-lucide-info',
-  to: 'https://github.com/nuxt-ui-templates/dashboard',
-  target: '_blank'
-}]]
+}]
+//   [{
+//   label: 'Feedback',
+//   icon: 'i-lucide-message-circle',
+//   to: 'https://github.com/nuxt-ui-templates/dashboard',
+//   target: '_blank'
+// }, {
+//   label: 'Help & Support',
+//   icon: 'i-lucide-info',
+//   to: 'https://github.com/nuxt-ui-templates/dashboard',
+//   target: '_blank'
+// }
+// ]
+]
 
 // Filtra um item pela sua permissão e recursivamente seus children;
 // um grupo (trigger) é removido se todos os seus children forem filtrados.
