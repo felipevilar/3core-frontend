@@ -15,173 +15,37 @@ useHead({
   ]
 })
 
-const AREAS_GRUPOS = [
-  {
-    grupo: 'Suporte e Atendimento',
-    itens: [
-      'Suporte Técnico (Help Desk)',
-      'Triagem / Mesa de Atendimento',
-      'Atendimento N1, N2 e N3',
-      'Suporte remoto e presencial',
-      'Troubleshooting de hardware e software',
-      'Atendimento a usuários finais'
-    ]
-  },
-  {
-    grupo: 'Infraestrutura e Redes',
-    itens: [
-      'Infraestrutura de Rede',
-      'Cabeamento estruturado',
-      'Conexão de cabo / cabeamento',
-      'Configuração de redes LAN/WAN',
-      'Configuração de roteadores e switches',
-      'Instalação e configuração de Wi-Fi',
-      'Monitoramento de links e dispositivos',
-      'VPN e firewall'
-    ]
-  },
-  {
-    grupo: 'Instalação e Campo',
-    itens: [
-      'Field Service',
-      'Instalação de equipamentos',
-      'Implantação de estações de trabalho',
-      'Instalação de monitores e players',
-      'Instalação de racks e organização',
-      'Passagem de cabos',
-      'Instalação de monitor profissional',
-      'Instalação de telas acima de 50"',
-      'Instalação de videowall',
-      'Instalação de painel de LED',
-      'Estruturação e fixação de telas',
-      'Configuração de players Android/Windows',
-      'Instalação de Digital Signage / DOOH'
-    ]
-  },
-  {
-    grupo: 'Hardware e Manutenção',
-    itens: [
-      'Manutenção de hardware',
-      'Upgrade de equipamentos',
-      'Troca de peças',
-      'Limpeza técnica',
-      'Montagem e desmontagem de equipamentos',
-      'Diagnóstico técnico'
-    ]
-  },
-  {
-    grupo: 'Sistemas e Software',
-    itens: [
-      'Configuração de software',
-      'Instalação de sistemas operacionais',
-      'Configuração de aplicativos corporativos',
-      'Backup e restauração',
-      'Formatação e imagem de sistemas'
-    ]
-  },
-  {
-    grupo: 'Servidores e Datacenter',
-    itens: [
-      'Administração de servidores Windows/Linux',
-      'Virtualização',
-      'Active Directory',
-      'Gerenciamento de storage',
-      'Monitoramento de servidores',
-      'Administração de serviços de rede'
-    ]
-  },
-  {
-    grupo: 'Segurança e Monitoramento',
-    itens: [
-      'CFTV / Câmeras de Segurança',
-      'Controle de acesso',
-      'Segurança da informação',
-      'Auditoria e compliance',
-      'Gestão de políticas de segurança'
-    ]
-  },
-  {
-    grupo: 'Telecom e Periféricos',
-    itens: [
-      'Telefonia / VOIP',
-      'Impressoras e periféricos',
-      'Configuração de scanners',
-      'Configuração de coletores',
-      'Dispositivos USB e serial'
-    ]
-  },
-  {
-    grupo: 'Especialidades',
-    itens: [
-      'Digital Signage / DOOH',
-      'ATM / Totens de autoatendimento',
-      'POS / PDV',
-      'Equipamentos industriais',
-      'Smart TVs e players Android',
-      'Automação comercial',
-      'Painel de LED indoor/outdoor',
-      'Monitores corporativos Samsung/LG/Philips',
-      'Sincronização de videowall',
-      'Instalação com suporte articulado/teto/parede'
-    ]
-  }
-]
+const { apiBase } = useRuntimeConfig().public
 
-const FERRAMENTAS_GRUPOS = [
-  {
-    grupo: 'Equipamentos Básicos',
-    itens: [
-      'Notebook (TeamViewer / PuTTY / AnyDesk)',
-      'Smartphone com acesso 4G/pacote de dados',
-      'Pendrive bootável',
-      'HD externo',
-      'Imagem de Sistema Operacional',
-      'Software Hiren\'s Boot',
-      'Pasta térmica',
-      'Celular Android com disponibilidade de dados'
-    ]
-  },
-  {
-    grupo: 'Ferramentas de Rede (Networking)',
-    itens: [
-      'Alicate de corte',
-      'Alicate de crimpar',
-      'Pushdown',
-      'Chaves de fenda',
-      'Chave Phillips',
-      'Kit chave Allen',
-      'Kit chave Torx',
-      'Conectores RJ45',
-      'Conectores Keystone',
-      'Cabo de rede para testes',
-      'Jumpers UTP CAT6 (direto e cross)',
-      'Cabos console',
-      'Cabo USB serial',
-      'Testador de cabo',
-      'Etiquetas adesivas / fita crepe',
-      'Pulseira antiestática',
-      'Multímetro',
-      'Etiquetadora',
-      'Localizador de Cabo (Zumbidor)',
-      'Furadeira',
-      'Parafusadeira'
-    ]
-  },
-  {
-    grupo: 'Itens para Players / Monitores / DOOH',
-    itens: [
-      'Tela/monitor de apoio (HDMI)',
-      'Fone P2',
-      'Controle remoto universal',
-      'Teclado',
-      'Mouse',
-      'Cabo USB',
-      'Cabo HDMI',
-      'Cabo DisplayPort',
-      'Adaptador HDMI/VGA'
-    ]
-  }
-]
+interface OptionItem {
+  id: number
+  label: string
+  active: boolean
+}
+
+interface OptionGroup {
+  id: number
+  name: string
+  active: boolean
+  items: OptionItem[]
+}
+
+const [{ data: rawAreas }, { data: rawTools }] = await Promise.all([
+  useFetch<OptionGroup[]>(`${apiBase}/landing-config/groups/area`),
+  useFetch<OptionGroup[]>(`${apiBase}/landing-config/groups/tool`)
+])
+
+const AREAS_GRUPOS = computed(() =>
+  (rawAreas.value ?? [])
+    .filter(g => g.active)
+    .map(g => ({ grupo: g.name, itens: g.items.filter(i => i.active).map(i => i.label) }))
+)
+
+const FERRAMENTAS_GRUPOS = computed(() =>
+  (rawTools.value ?? [])
+    .filter(g => g.active)
+    .map(g => ({ grupo: g.name, itens: g.items.filter(i => i.active).map(i => i.label) }))
+)
 
 const form = reactive({
   nomeCompleto: '',

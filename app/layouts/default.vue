@@ -29,6 +29,26 @@ const links = [[{
     open.value = false
   }
 }, {
+  label: 'Landing Page',
+  icon: 'i-lucide-layout-template',
+  to: '/landing-config',
+  type: 'trigger',
+  defaultOpen: false,
+  children: [{
+    label: 'Áreas de Atuação',
+    to: '/landing-config',
+    exact: true,
+    onSelect: () => {
+      open.value = false
+    }
+  }, {
+    label: 'Ferramental Técnico',
+    to: '/landing-config/tools',
+    onSelect: () => {
+      open.value = false
+    }
+  }]
+}, {
   label: 'Settings',
   to: '/settings',
   icon: 'i-lucide-settings',
