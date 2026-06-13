@@ -9,7 +9,7 @@ const open = ref(false)
 const links = [[{
   label: 'Home',
   icon: 'i-lucide-house',
-  to: '/',
+  to: '/dashboard',
   onSelect: () => {
     open.value = false
   }

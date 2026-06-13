@@ -4,6 +4,13 @@
 @theme static {
   --font-sans: 'Public Sans', sans-serif;
 
+  --color-brand-blue: #1565a8;
+  --color-brand-blue-dark: #0e4d82;
+  --color-brand-blue-light: #1e7fcc;
+  --color-brand-orange: #f47920;
+  --color-brand-orange-dark: #d9660f;
+  --color-brand-orange-light: #f5903a;
+
   --color-green-50: #EFFDF5;
   --color-green-100: #D9FBE8;
   --color-green-200: #B3F5D1;
