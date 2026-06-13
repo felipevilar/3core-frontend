@@ -1,6 +1,8 @@
 <script setup lang="ts">
 import type { NavigationMenuItem } from '@nuxt/ui'
 
+definePageMeta({ permission: 'landing.ver' })
+
 const links = [[{
   label: 'Áreas de Atuação',
   icon: 'i-lucide-briefcase',

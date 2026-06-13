@@ -1,7 +1,9 @@
 <script setup lang="ts">
 import type { NavigationMenuItem } from '@nuxt/ui'
 
-const links = [[{
+const { can } = usePermissions()
+
+const links = computed<NavigationMenuItem[][]>(() => [[{
   label: 'General',
   icon: 'i-lucide-user',
   to: '/settings',
@@ -10,7 +12,19 @@ const links = [[{
   label: 'Members',
   icon: 'i-lucide-users',
   to: '/settings/members'
-}, {
+}, ...(can('usuarios.ver')
+  ? [{
+      label: 'Usuários',
+      icon: 'i-lucide-user-cog',
+      to: '/settings/users'
+    }]
+  : []), ...(can('roles.ver')
+  ? [{
+      label: 'Papéis',
+      icon: 'i-lucide-shield-check',
+      to: '/settings/roles'
+    }]
+  : []), {
   label: 'Notifications',
   icon: 'i-lucide-bell',
   to: '/settings/notifications'
@@ -23,7 +37,7 @@ const links = [[{
   icon: 'i-lucide-book-open',
   to: 'https://ui.nuxt.com/docs/getting-started/installation/nuxt',
   target: '_blank'
-}]] satisfies NavigationMenuItem[][]
+}]])
 </script>
 
 <template>

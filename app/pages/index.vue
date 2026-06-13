@@ -52,6 +52,8 @@ const form = reactive({
   cpf: '',
   rg: '',
   email: '',
+  senha: '',
+  confirmarSenha: '',
   celular: '',
   cep: '',
   logradouro: '',
@@ -190,6 +192,10 @@ function validarStep(step: number): boolean {
       || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email.trim())
     )
       novo.email = 'Informe um e-mail válido.'
+    if (form.senha.length < 8)
+      novo.senha = 'A senha deve ter pelo menos 8 caracteres.'
+    if (form.confirmarSenha !== form.senha)
+      novo.confirmarSenha = 'As senhas não conferem.'
     if (form.celular.replace(/\D/g, '').length < 10)
       novo.celular = 'Informe um celular válido com DDD.'
     if (form.cep.replace(/\D/g, '').length < 8)
@@ -263,6 +269,7 @@ async function handleSubmit() {
     cpf: form.cpf.replace(/\D/g, ''),
     rg: form.rg,
     email: form.email,
+    senha: form.senha,
     celular: form.celular.replace(/\D/g, ''),
     endereco: {
       cep: form.cep.replace(/\D/g, ''),
@@ -327,9 +334,6 @@ async function handleSubmit() {
     <!-- HEADER -->
     <header>
       <div class="bg-brand-blue text-white shadow-lg">
-        <div class="max-w-2xl mx-auto px-4 py-4 flex justify-center">
-          <img src="/logo.jpeg" alt="3CORE Tecnologia" class="h-16 w-auto">
-        </div>
         <div class="max-w-2xl mx-auto px-4 py-5">
           <h1 class="text-lg sm:text-xl font-bold leading-tight">
             Cadastro de Técnico Parceiro
@@ -363,24 +367,18 @@ async function handleSubmit() {
           </svg>
         </div>
         <h2 class="text-2xl font-bold text-gray-800 mb-2">
-          Cadastro Enviado!
+          Conta criada com sucesso!
         </h2>
         <p class="text-gray-500 leading-relaxed">
-          Recebemos suas informações com sucesso. Nossa equipe entrará em
-          contato em breve pelo telefone ou e-mail cadastrado.
+          Seu cadastro foi concluído e seu acesso já está liberado.
+          Faça login com o e-mail e a senha que você cadastrou para acessar o painel.
         </p>
-        <div
-          class="mt-6 inline-flex items-center gap-2 bg-brand-blue/10 text-brand-blue px-4 py-2 rounded-full text-sm font-medium"
+        <NuxtLink
+          to="/login"
+          class="mt-6 inline-flex items-center gap-2 bg-brand-blue text-white px-6 py-2.5 rounded-full text-sm font-medium hover:bg-brand-blue/90 transition"
         >
-          <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
-            <path
-              fill-rule="evenodd"
-              d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-12a1 1 0 10-2 0v4a1 1 0 00.293.707l2.828 2.829a1 1 0 101.415-1.415L11 9.586V6z"
-              clip-rule="evenodd"
-            />
-          </svg>
-          Análise em até 2 dias úteis
-        </div>
+          Acessar o painel
+        </NuxtLink>
       </div>
     </div>
 
@@ -489,6 +487,40 @@ async function handleSubmit() {
               </p>
             </div>
           </div>
+
+          <div class="grid grid-cols-2 gap-3">
+            <div :data-campo-erro="!!erros.senha || undefined">
+              <label class="label-field">Senha de acesso <span class="text-brand-orange">*</span></label>
+              <input
+                v-model="form.senha"
+                type="password"
+                placeholder="Mínimo 8 caracteres"
+                autocomplete="new-password"
+                class="input-field"
+                :class="{ 'border-red-400 focus:ring-red-300': erros.senha }"
+              >
+              <p v-if="erros.senha" class="msg-erro">
+                {{ erros.senha }}
+              </p>
+            </div>
+            <div :data-campo-erro="!!erros.confirmarSenha || undefined">
+              <label class="label-field">Confirmar senha <span class="text-brand-orange">*</span></label>
+              <input
+                v-model="form.confirmarSenha"
+                type="password"
+                placeholder="Repita a senha"
+                autocomplete="new-password"
+                class="input-field"
+                :class="{ 'border-red-400 focus:ring-red-300': erros.confirmarSenha }"
+              >
+              <p v-if="erros.confirmarSenha" class="msg-erro">
+                {{ erros.confirmarSenha }}
+              </p>
+            </div>
+          </div>
+          <p class="text-xs text-gray-400 -mt-1">
+            Você usará este e-mail e senha para acessar o painel após o cadastro.
+          </p>
 
           <hr class="border-gray-100 my-1">
           <p

@@ -1,15 +1,24 @@
 <script setup lang="ts">
-import type { NavigationMenuItem } from '@nuxt/ui'
+import type { CommandPaletteItem, NavigationMenuItem } from '@nuxt/ui'
 
 const route = useRoute()
 const toast = useToast()
+const { can } = usePermissions()
 
 const open = ref(false)
 
-const links = [[{
+// Item de menu com permissão opcional. Itens/grupos sem permissão são sempre visíveis;
+// com permissão, só aparecem se o usuário a possuir (children filtrados recursivamente).
+type AppNavItem = NavigationMenuItem & {
+  permission?: string
+  children?: AppNavItem[]
+}
+
+const allLinks: AppNavItem[][] = [[{
   label: 'Home',
   icon: 'i-lucide-house',
   to: '/dashboard',
+  permission: 'dashboard.ver',
   onSelect: () => {
     open.value = false
   }
@@ -18,6 +27,7 @@ const links = [[{
   icon: 'i-lucide-inbox',
   to: '/inbox',
   badge: '4',
+  permission: 'inbox.ver',
   onSelect: () => {
     open.value = false
   }
@@ -25,6 +35,7 @@ const links = [[{
   label: 'Customers',
   icon: 'i-lucide-users',
   to: '/customers',
+  permission: 'clientes.ver',
   onSelect: () => {
     open.value = false
   }
@@ -34,6 +45,7 @@ const links = [[{
   to: '/landing-config',
   type: 'trigger',
   defaultOpen: false,
+  permission: 'landing.ver',
   children: [{
     label: 'Áreas de Atuação',
     to: '/landing-config',
@@ -44,6 +56,28 @@ const links = [[{
   }, {
     label: 'Ferramental Técnico',
     to: '/landing-config/tools',
+    onSelect: () => {
+      open.value = false
+    }
+  }]
+}, {
+  label: 'Usuários e Papéis',
+  icon: 'i-lucide-shield-check',
+  to: '/settings/users',
+  type: 'trigger',
+  defaultOpen: false,
+  permission: 'usuarios.ver',
+  children: [{
+    label: 'Usuários',
+    to: '/settings/users',
+    permission: 'usuarios.ver',
+    onSelect: () => {
+      open.value = false
+    }
+  }, {
+    label: 'Papéis',
+    to: '/settings/roles',
+    permission: 'roles.ver',
     onSelect: () => {
       open.value = false
     }
@@ -90,12 +124,28 @@ const links = [[{
   icon: 'i-lucide-info',
   to: 'https://github.com/nuxt-ui-templates/dashboard',
   target: '_blank'
-}]] satisfies NavigationMenuItem[][]
+}]]
+
+// Filtra um item pela sua permissão e recursivamente seus children;
+// um grupo (trigger) é removido se todos os seus children forem filtrados.
+function filterItems(items: AppNavItem[]): NavigationMenuItem[] {
+  return items
+    .filter(item => !item.permission || can(item.permission))
+    .map((item) => {
+      if (!item.children) return item
+      const children = filterItems(item.children)
+      return { ...item, children }
+    })
+    .filter(item => !item.children || item.children.length > 0) as NavigationMenuItem[]
+}
+
+const links = computed<NavigationMenuItem[][]>(() => allLinks.map(filterItems))
 
 const groups = computed(() => [{
   id: 'links',
   label: 'Go to',
-  items: links.flat()
+  // cast: NavigationMenuItem é compatível com CommandPaletteItem em runtime
+  items: links.value.flat() as unknown as CommandPaletteItem[]
 }, {
   id: 'code',
   label: 'Code',
@@ -166,6 +216,7 @@ onMounted(async () => {
           tooltip
           class="mt-auto"
         />
+        <!-- links é computed; o acesso por índice funciona normalmente no template -->
       </template>
 
       <template #footer="{ collapsed }">

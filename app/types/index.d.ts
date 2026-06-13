@@ -28,6 +28,43 @@ export interface Member {
   avatar: AvatarProps
 }
 
+// ---- RBAC / Auth ----
+export interface AuthUser {
+  id: number
+  email: string
+  name: string
+  isActive: boolean
+  role: { id: number, name: string, description: string | null }
+  permissions: string[]
+}
+
+export interface Permission {
+  key: string
+  label: string
+}
+
+export interface PermissionGroup {
+  feature: string
+  label: string
+  permissions: Permission[]
+}
+
+export interface Role {
+  id: number
+  name: string
+  description: string | null
+  isSystem: boolean
+  permissions: Permission[]
+}
+
+export interface ManagedUser {
+  id: number
+  email: string
+  name: string
+  isActive: boolean
+  role: Role
+}
+
 export interface Stat {
   title: string
   icon: string
