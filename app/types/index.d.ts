@@ -65,6 +65,75 @@ export interface ManagedUser {
   role: Role
 }
 
+// ---- Técnicos ----
+export interface CidadeAtendida {
+  cidade: string
+  custoKm: string
+}
+
+/** Linha enxuta retornada por GET /technicians (tabela). */
+export interface TechnicianListItem {
+  id: number
+  userId: number
+  name: string
+  email: string
+  isActive: boolean
+  celular: string
+  cidade: string | null
+  estado: string | null
+  areasAtuacao: string[] | null
+  cidadesAtendidas: CidadeAtendida[] | null
+  createdAt: string
+}
+
+export interface PagamentoInfo {
+  pix?: { chavePix: string, nomeTitularPix: string } | null
+  dadosBancarios?: {
+    banco: string
+    agencia: string
+    conta: string
+    tipoConta: string
+  } | null
+}
+
+export interface EmpresaInfo {
+  nomeFantasia: string
+  razaoSocial: string
+  cnpj: string
+}
+
+/** Ficha completa retornada por GET /technicians/:id. */
+export interface TechnicianDetail {
+  id: number
+  userId: number
+  cpf: string
+  rg: string | null
+  celular: string
+  cep: string | null
+  logradouro: string | null
+  numero: string | null
+  complemento: string | null
+  bairro: string | null
+  cidade: string | null
+  estado: string | null
+  enderecoEncomendas: string | null
+  pretensaoValorHora: string | null
+  custoPorKm: string | null
+  pagamento: PagamentoInfo | null
+  empresa: EmpresaInfo | null
+  areasAtuacao: string[] | null
+  ferramental: string[] | null
+  cidadesAtendidas: CidadeAtendida[] | null
+  createdAt: string
+  updatedAt: string
+  user: {
+    id: number
+    name: string
+    email: string
+    isActive: boolean
+  }
+}
+
 export interface Stat {
   title: string
   icon: string

@@ -82,6 +82,70 @@ const cepLoading = ref(false)
 const erros = reactive<Record<string, string>>({})
 const novaCidade = reactive({ cidade: '', custoKm: '' })
 
+const cidadeSugestoes = ref<string[]>([])
+const cidadeSugestoesVisiveis = ref(false)
+const cidadeIndexAtivo = ref(-1)
+
+let cidadeDebounceTimer: ReturnType<typeof setTimeout> | null = null
+
+async function buscarCidadeSugestoes(termo: string) {
+  if (cidadeDebounceTimer) clearTimeout(cidadeDebounceTimer)
+  if (termo.trim().length < 2) {
+    cidadeSugestoes.value = []
+    cidadeSugestoesVisiveis.value = false
+    return
+  }
+  cidadeDebounceTimer = setTimeout(async () => {
+    try {
+      const data = await $fetch<{ nome: string }[]>(
+        'https://servicodados.ibge.gov.br/api/v1/localidades/municipios',
+        { params: { orderBy: 'nome' } }
+      )
+      const termoNorm = termo.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase()
+      cidadeSugestoes.value = data
+        .filter(m => m.nome.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().startsWith(termoNorm))
+        .slice(0, 8)
+        .map(m => m.nome)
+      cidadeSugestoesVisiveis.value = cidadeSugestoes.value.length > 0
+      cidadeIndexAtivo.value = -1
+    } catch {
+      cidadeSugestoes.value = []
+    }
+  }, 300)
+}
+
+function selecionarCidadeSugestao(nome: string) {
+  novaCidade.cidade = nome
+  cidadeSugestoesVisiveis.value = false
+  cidadeSugestoes.value = []
+}
+
+function fecharSugestoesCidade() {
+  setTimeout(() => {
+    cidadeSugestoesVisiveis.value = false
+  }, 150)
+}
+
+function cidadeKeydown(event: KeyboardEvent) {
+  if (!cidadeSugestoesVisiveis.value) return
+  if (event.key === 'ArrowDown') {
+    event.preventDefault()
+    cidadeIndexAtivo.value = Math.min(cidadeIndexAtivo.value + 1, cidadeSugestoes.value.length - 1)
+  } else if (event.key === 'ArrowUp') {
+    event.preventDefault()
+    cidadeIndexAtivo.value = Math.max(cidadeIndexAtivo.value - 1, 0)
+  } else if (event.key === 'Enter') {
+    event.preventDefault()
+    if (cidadeIndexAtivo.value >= 0) {
+      selecionarCidadeSugestao(cidadeSugestoes.value[cidadeIndexAtivo.value])
+    } else {
+      adicionarCidade()
+    }
+  } else if (event.key === 'Escape') {
+    cidadeSugestoesVisiveis.value = false
+  }
+}
+
 const TOTAL_STEPS = 7
 const stepAtual = ref(1)
 
@@ -1112,15 +1176,32 @@ async function handleSubmit() {
           </p>
           <div class="bg-gray-50 rounded-xl p-3 space-y-3">
             <div class="grid grid-cols-2 gap-3">
-              <div>
+              <div class="relative">
                 <label class="label-field">Nome da Cidade</label>
                 <input
                   v-model="novaCidade.cidade"
                   type="text"
                   placeholder="Ex.: Campinas"
                   class="input-field"
-                  @keydown.enter.prevent="adicionarCidade"
+                  autocomplete="off"
+                  @input="buscarCidadeSugestoes(novaCidade.cidade)"
+                  @keydown="cidadeKeydown"
+                  @blur="fecharSugestoesCidade"
                 >
+                <ul
+                  v-if="cidadeSugestoesVisiveis"
+                  class="absolute z-50 left-0 right-0 mt-1 bg-white border border-gray-200 rounded-lg shadow-lg max-h-48 overflow-y-auto"
+                >
+                  <li
+                    v-for="(nome, i) in cidadeSugestoes"
+                    :key="nome"
+                    class="px-3 py-2 text-sm cursor-pointer hover:bg-blue-50"
+                    :class="{ 'bg-blue-100': i === cidadeIndexAtivo }"
+                    @mousedown.prevent="selecionarCidadeSugestao(nome)"
+                  >
+                    {{ nome }}
+                  </li>
+                </ul>
               </div>
               <div>
                 <label class="label-field">Custo de Deslocamento</label>

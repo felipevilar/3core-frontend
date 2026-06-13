@@ -61,6 +61,14 @@ const allLinks: AppNavItem[][] = [[{
     }
   }]
 }, {
+  label: 'Técnicos',
+  icon: 'i-lucide-hard-hat',
+  to: '/technicians',
+  permission: 'tecnicos.ver',
+  onSelect: () => {
+    open.value = false
+  }
+}, {
   label: 'Usuários e Papéis',
   icon: 'i-lucide-shield-check',
   to: '/settings/users',
