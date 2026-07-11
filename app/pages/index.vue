@@ -1133,7 +1133,7 @@ async function handleSubmit() {
               v-model="form.pretensaoValorHora"
               type="text"
               inputmode="decimal"
-              placeholder="Ex.: R$ 150,00 por período de 3 horas"
+              placeholder="Ex.: R$ 100,00 por período de 3 horas"
               class="input-field"
             >
           </div>
@@ -1149,7 +1149,7 @@ async function handleSubmit() {
                 type="text"
                 inputmode="decimal"
                 placeholder="0,00"
-                class="input-field pl-10"
+                class="input-field pl-10!"
               >
             </div>
           </div>
@@ -1214,7 +1214,7 @@ async function handleSubmit() {
                     type="text"
                     inputmode="decimal"
                     placeholder="0,00"
-                    class="input-field pl-10"
+                    class="input-field pl-10!"
                     @keydown.enter.prevent="adicionarCidade"
                   >
                 </div>
