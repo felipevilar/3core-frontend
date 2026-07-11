@@ -909,10 +909,25 @@ async function handleSubmit() {
         </div>
         <div class="p-4 space-y-4">
           <label class="flex items-center gap-3 cursor-pointer select-none">
+            <div
+              class="w-5 h-5 rounded border-2 flex items-center justify-center shrink-0 transition-colors duration-200"
+              :class="form.possuiEmpresa ? 'bg-brand-orange border-brand-orange' : 'bg-white border-gray-300'"
+            >
+              <svg
+                v-if="form.possuiEmpresa"
+                class="w-3 h-3 text-white"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+                stroke-width="3"
+              >
+                <path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7" />
+              </svg>
+            </div>
             <input
               v-model="form.possuiEmpresa"
               type="checkbox"
-              class="w-5 h-5 rounded accent-brand-orange"
+              class="sr-only"
             >
             <span class="text-sm text-gray-700 font-medium">Possuo empresa (MEI, EIRELI, Ltda., etc.) em meu nome</span>
           </label>
