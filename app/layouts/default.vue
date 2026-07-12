@@ -32,6 +32,14 @@ const allLinks: AppNavItem[][] = [[{
     open.value = false
   }
 }, {
+  label: 'Clientes',
+  icon: 'i-lucide-building-2',
+  to: '/clientes',
+  permission: 'clientes.ver',
+  onSelect: () => {
+    open.value = false
+  }
+}, {
   label: 'Landing Page',
   icon: 'i-lucide-layout-template',
   to: '/landing-config',
@@ -53,28 +61,6 @@ const allLinks: AppNavItem[][] = [[{
     }
   }]
 }, {
-  label: 'Usuários e Permissões',
-  icon: 'i-lucide-shield-check',
-  to: '/settings/users',
-  type: 'trigger',
-  defaultOpen: false,
-  permission: 'usuarios.ver',
-  children: [{
-    label: 'Usuários',
-    to: '/settings/users',
-    permission: 'usuarios.ver',
-    onSelect: () => {
-      open.value = false
-    }
-  }, {
-    label: 'Permissões',
-    to: '/settings/roles',
-    permission: 'roles.ver',
-    onSelect: () => {
-      open.value = false
-    }
-  }]
-}, {
   label: 'Configurações',
   to: '/settings',
   icon: 'i-lucide-settings',
@@ -88,14 +74,16 @@ const allLinks: AppNavItem[][] = [[{
       open.value = false
     }
   }, {
-    label: 'Membros',
-    to: '/settings/members',
+    label: 'Usuários',
+    to: '/settings/users',
+    permission: 'usuarios.ver',
     onSelect: () => {
       open.value = false
     }
   }, {
-    label: 'Notificações',
-    to: '/settings/notifications',
+    label: 'Permissões',
+    to: '/settings/roles',
+    permission: 'roles.ver',
     onSelect: () => {
       open.value = false
     }

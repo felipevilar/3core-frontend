@@ -65,10 +65,39 @@ export interface ManagedUser {
   role: Role
 }
 
+// ---- Cidades (IBGE) ----
+export interface City {
+  code: number
+  nome: string
+  searchName: string
+  uf: string
+  ufNome: string
+  regiao: string
+  lat: number | null
+  lng: number | null
+  capital: boolean
+}
+
+/** Município resumido (autocomplete e listas). */
+export interface CityRef {
+  code: number
+  nome: string
+  uf: string
+}
+
+export interface Uf {
+  uf: string
+  ufNome: string
+  regiao: string
+}
+
 // ---- Técnicos ----
-export interface CidadeAtendida {
-  cidade: string
-  custoKm: string
+/** Cidade atendida, já resolvida com custo em R$/km. */
+export interface ServedCity {
+  code: number
+  nome: string
+  uf: string
+  custoKm?: string | null
 }
 
 /** Linha enxuta retornada por GET /technicians (tabela). */
@@ -79,10 +108,11 @@ export interface TechnicianListItem {
   email: string
   isActive: boolean
   celular: string
-  cidade: string | null
-  estado: string | null
+  cityCode: number | null
+  cidadeNome: string | null
+  uf: string | null
   areasAtuacao: string[] | null
-  cidadesAtendidas: CidadeAtendida[] | null
+  cidadesAtendidas: CityRef[]
   createdAt: string
 }
 
@@ -102,6 +132,14 @@ export interface EmpresaInfo {
   cnpj: string
 }
 
+/** Item de tech_service_areas expandido (relação servedCities). */
+export interface TechServiceArea {
+  id: number
+  cityCode: number
+  custoKm: string | null
+  city: CityRef
+}
+
 /** Ficha completa retornada por GET /technicians/:id. */
 export interface TechnicianDetail {
   id: number
@@ -114,8 +152,8 @@ export interface TechnicianDetail {
   numero: string | null
   complemento: string | null
   bairro: string | null
-  cidade: string | null
-  estado: string | null
+  cityCode: number | null
+  city: City | null
   enderecoEncomendas: string | null
   pretensaoValorHora: string | null
   custoPorKm: string | null
@@ -123,7 +161,7 @@ export interface TechnicianDetail {
   empresa: EmpresaInfo | null
   areasAtuacao: string[] | null
   ferramental: string[] | null
-  cidadesAtendidas: CidadeAtendida[] | null
+  servedCities: TechServiceArea[]
   createdAt: string
   updatedAt: string
   user: {
@@ -132,6 +170,52 @@ export interface TechnicianDetail {
     email: string
     isActive: boolean
   }
+}
+
+// ---- Clientes ----
+export type ClientType = 'pf' | 'pj'
+
+export interface Client {
+  id: number
+  tipo: ClientType
+  nome: string
+  nomeFantasia: string | null
+  cnpj: string | null
+  cpf: string | null
+  email: string | null
+  telefone: string | null
+  contatoNome: string | null
+  cep: string | null
+  logradouro: string | null
+  numero: string | null
+  complemento: string | null
+  bairro: string | null
+  cityCode: number | null
+  city: City | null
+  observacoes: string | null
+  ativo: boolean
+  createdAt: string
+  updatedAt: string
+}
+
+/** Corpo aceito por POST /clients e PATCH /clients/:id. */
+export interface ClientPayload {
+  tipo: ClientType
+  nome: string
+  nomeFantasia?: string | null
+  cnpj?: string | null
+  cpf?: string | null
+  email?: string | null
+  telefone?: string | null
+  contatoNome?: string | null
+  cep?: string | null
+  logradouro?: string | null
+  numero?: string | null
+  complemento?: string | null
+  bairro?: string | null
+  cityCode?: number | null
+  observacoes?: string | null
+  ativo?: boolean
 }
 
 export interface Stat {

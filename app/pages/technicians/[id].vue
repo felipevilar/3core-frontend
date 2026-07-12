@@ -12,8 +12,9 @@ const { data: ficha, error } = await useAsyncData(
 )
 
 function enderecoCompleto(f: TechnicianDetail) {
+  const cidadeUf = f.city ? `${f.city.nome} • ${f.city.uf}` : null
   const linha1 = [f.logradouro, f.numero].filter(Boolean).join(', ')
-  const linha2 = [f.bairro, f.cidade, f.estado].filter(Boolean).join(' • ')
+  const linha2 = [f.bairro, cidadeUf].filter(Boolean).join(' • ')
   return [linha1, f.complemento, linha2, f.cep ? `CEP ${f.cep}` : null]
     .filter(Boolean)
     .join('\n')
@@ -186,20 +187,22 @@ const tipoContaLabel: Record<string, string> = {
 
           <!-- Cidades atendidas -->
           <UPageCard
-            v-if="ficha.cidadesAtendidas?.length"
+            v-if="ficha.servedCities?.length"
             title="Cidades atendidas"
             variant="subtle"
             class="lg:col-span-2"
           >
             <ul class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2 text-sm">
               <li
-                v-for="(c, i) in ficha.cidadesAtendidas"
-                :key="c.cidade + i"
+                v-for="area in ficha.servedCities"
+                :key="area.id"
                 class="flex items-center justify-between gap-3 bg-default rounded-lg px-3 py-2"
               >
-                <span class="text-highlighted font-medium">{{ c.cidade }}</span>
+                <span class="text-highlighted font-medium truncate">
+                  {{ area.city.nome }} <span class="text-muted">/ {{ area.city.uf }}</span>
+                </span>
                 <span class="text-muted text-xs shrink-0">
-                  {{ c.custoKm ? `R$ ${c.custoKm}/km` : 'sem custo informado' }}
+                  {{ area.custoKm ? `R$ ${area.custoKm}/km` : 'sem custo' }}
                 </span>
               </li>
             </ul>

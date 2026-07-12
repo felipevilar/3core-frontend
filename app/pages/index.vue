@@ -62,6 +62,7 @@ const form = reactive({
   bairro: '',
   cidade: '',
   estado: '',
+  cidadeCode: null as number | null,
   mesmoEnderecoEncomendas: true,
   enderecoEncomendas: '',
   pix: { chavePix: '', nomeTitularPix: '' },
@@ -72,7 +73,7 @@ const form = reactive({
   ferramental: [] as string[],
   pretensaoValorHora: '',
   custoPorKm: '',
-  cidadesAtendidas: [] as { cidade: string, custoKm: string }[]
+  cidadesAtendidas: [] as { cidade: string, cityCode: number, custoKm: string }[]
 })
 
 const isLoading = ref(false)
@@ -80,9 +81,11 @@ const submitSuccess = ref(false)
 const submitError = ref('')
 const cepLoading = ref(false)
 const erros = reactive<Record<string, string>>({})
-const novaCidade = reactive({ cidade: '', custoKm: '' })
+const novaCidade = reactive({ cidade: '', cityCode: null as number | null, custoKm: '' })
 
-const cidadeSugestoes = ref<string[]>([])
+interface CitySuggestion { code: number, nome: string, uf: string }
+
+const cidadeSugestoes = ref<CitySuggestion[]>([])
 const cidadeSugestoesVisiveis = ref(false)
 const cidadeIndexAtivo = ref(-1)
 
@@ -90,6 +93,8 @@ let cidadeDebounceTimer: ReturnType<typeof setTimeout> | null = null
 
 async function buscarCidadeSugestoes(termo: string) {
   if (cidadeDebounceTimer) clearTimeout(cidadeDebounceTimer)
+  // Trocar a cidade digitada invalida a seleção anterior (código IBGE).
+  novaCidade.cityCode = null
   if (termo.trim().length < 2) {
     cidadeSugestoes.value = []
     cidadeSugestoesVisiveis.value = false
@@ -97,15 +102,11 @@ async function buscarCidadeSugestoes(termo: string) {
   }
   cidadeDebounceTimer = setTimeout(async () => {
     try {
-      const data = await $fetch<{ nome: string }[]>(
-        'https://servicodados.ibge.gov.br/api/v1/localidades/municipios',
-        { params: { orderBy: 'nome' } }
+      // Usa nossa própria base de municípios (rápida, com código IBGE + UF).
+      cidadeSugestoes.value = await $fetch<CitySuggestion[]>(
+        `${apiBase}/cities/search`,
+        { params: { q: termo } }
       )
-      const termoNorm = termo.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase()
-      cidadeSugestoes.value = data
-        .filter(m => m.nome.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().startsWith(termoNorm))
-        .slice(0, 8)
-        .map(m => m.nome)
       cidadeSugestoesVisiveis.value = cidadeSugestoes.value.length > 0
       cidadeIndexAtivo.value = -1
     } catch {
@@ -114,8 +115,9 @@ async function buscarCidadeSugestoes(termo: string) {
   }, 300)
 }
 
-function selecionarCidadeSugestao(nome: string) {
-  novaCidade.cidade = nome
+function selecionarCidadeSugestao(sugestao: CitySuggestion) {
+  novaCidade.cidade = `${sugestao.nome} / ${sugestao.uf}`
+  novaCidade.cityCode = sugestao.code
   cidadeSugestoesVisiveis.value = false
   cidadeSugestoes.value = []
 }
@@ -136,8 +138,9 @@ function cidadeKeydown(event: KeyboardEvent) {
     cidadeIndexAtivo.value = Math.max(cidadeIndexAtivo.value - 1, 0)
   } else if (event.key === 'Enter') {
     event.preventDefault()
-    if (cidadeIndexAtivo.value >= 0) {
-      selecionarCidadeSugestao(cidadeSugestoes.value[cidadeIndexAtivo.value])
+    const sugestao = cidadeSugestoes.value[cidadeIndexAtivo.value]
+    if (sugestao) {
+      selecionarCidadeSugestao(sugestao)
     } else {
       adicionarCidade()
     }
@@ -214,6 +217,7 @@ async function buscarCep() {
       bairro?: string
       localidade?: string
       uf?: string
+      ibge?: string
       erro?: boolean
     }>(`https://viacep.com.br/ws/${cepLimpo}/json/`)
     if (!data.erro) {
@@ -221,6 +225,8 @@ async function buscarCep() {
       form.bairro = data.bairro ?? ''
       form.cidade = data.localidade ?? ''
       form.estado = data.uf ?? ''
+      // ViaCEP retorna o código IBGE do município — identidade da cidade.
+      form.cidadeCode = data.ibge ? Number(data.ibge) : null
     }
   } catch {
     // CEP não localizado — usuário preenche manualmente
@@ -230,12 +236,22 @@ async function buscarCep() {
 }
 
 function adicionarCidade() {
-  if (!novaCidade.cidade.trim()) return
+  // Só adiciona cidades escolhidas na lista (com código IBGE).
+  if (!novaCidade.cityCode) return
+  // Evita duplicar a mesma cidade.
+  if (form.cidadesAtendidas.some(c => c.cityCode === novaCidade.cityCode)) {
+    novaCidade.cidade = ''
+    novaCidade.cityCode = null
+    novaCidade.custoKm = ''
+    return
+  }
   form.cidadesAtendidas.push({
     cidade: novaCidade.cidade.trim(),
+    cityCode: novaCidade.cityCode,
     custoKm: novaCidade.custoKm.trim()
   })
   novaCidade.cidade = ''
+  novaCidade.cityCode = null
   novaCidade.custoKm = ''
 }
 
@@ -341,8 +357,7 @@ async function handleSubmit() {
       numero: form.numero,
       complemento: form.complemento,
       bairro: form.bairro,
-      cidade: form.cidade,
-      estado: form.estado
+      cityCode: form.cidadeCode
     },
     enderecoEncomendas: form.mesmoEnderecoEncomendas
       ? `${form.logradouro}, ${form.numero}${form.complemento ? ' ' + form.complemento : ''} — ${form.bairro}, ${form.cidade}/${form.estado}`
@@ -372,7 +387,10 @@ async function handleSubmit() {
     ferramental: form.ferramental,
     pretensaoValorHora: form.pretensaoValorHora || null,
     custoPorKm: form.custoPorKm || null,
-    cidadesAtendidas: form.cidadesAtendidas
+    cidadesAtendidas: form.cidadesAtendidas.map(c => ({
+      cityCode: c.cityCode,
+      custoKm: c.custoKm
+    }))
   }
 
   try {
@@ -1208,13 +1226,13 @@ async function handleSubmit() {
                   class="absolute z-50 left-0 right-0 mt-1 bg-white border border-gray-200 rounded-lg shadow-lg max-h-48 overflow-y-auto"
                 >
                   <li
-                    v-for="(nome, i) in cidadeSugestoes"
-                    :key="nome"
+                    v-for="(sugestao, i) in cidadeSugestoes"
+                    :key="sugestao.code"
                     class="px-3 py-2 text-sm cursor-pointer hover:bg-blue-50"
                     :class="{ 'bg-blue-100': i === cidadeIndexAtivo }"
-                    @mousedown.prevent="selecionarCidadeSugestao(nome)"
+                    @mousedown.prevent="selecionarCidadeSugestao(sugestao)"
                   >
-                    {{ nome }}
+                    {{ sugestao.nome }} / {{ sugestao.uf }}
                   </li>
                 </ul>
               </div>

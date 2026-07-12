@@ -8,10 +8,6 @@ const links = computed<NavigationMenuItem[][]>(() => [[{
   icon: 'i-lucide-user',
   to: '/settings',
   exact: true
-}, {
-  label: 'Membros',
-  icon: 'i-lucide-users',
-  to: '/settings/members'
 }, ...(can('usuarios.ver')
   ? [{
       label: 'Usuários',
@@ -20,23 +16,14 @@ const links = computed<NavigationMenuItem[][]>(() => [[{
     }]
   : []), ...(can('roles.ver')
   ? [{
-      label: 'Papéis',
+      label: 'Permissões',
       icon: 'i-lucide-shield-check',
       to: '/settings/roles'
     }]
   : []), {
-  label: 'Notificações',
-  icon: 'i-lucide-bell',
-  to: '/settings/notifications'
-}, {
   label: 'Segurança',
   icon: 'i-lucide-shield',
   to: '/settings/security'
-}], [{
-  label: 'Documentação',
-  icon: 'i-lucide-book-open',
-  to: 'https://ui.nuxt.com/docs/getting-started/installation/nuxt',
-  target: '_blank'
 }]])
 </script>
 

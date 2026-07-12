@@ -1,44 +1,71 @@
 <script setup lang="ts">
-import type { TechnicianListItem } from '~/types'
+import type { TechnicianListItem, Uf } from '~/types'
 
 definePageMeta({ permission: 'tecnicos.ver' })
 
 const { $api } = useNuxtApp()
+const toast = useToast()
 
 const { data: technicians, pending } = await useAsyncData('technicians', () =>
   $api<TechnicianListItem[]>('/technicians')
 )
+const { data: ufs } = await useAsyncData('ufs', () => $api<Uf[]>('/cities/ufs'))
+
+const ufItems = computed(() => [
+  { label: 'Todas as UFs', value: 'todas' },
+  ...(ufs.value ?? []).map(u => ({ label: `${u.uf} — ${u.ufNome}`, value: u.uf }))
+])
 
 // ---- Filtros (client-side) ----
 const q = ref('')
-const cidade = ref('')
+const uf = ref('todas')
 const cidadeAtendida = ref('')
+
+function norm(s: string) {
+  return s.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase()
+}
 
 const filtered = computed(() => {
   const term = q.value.trim().toLowerCase()
-  const cid = cidade.value.trim().toLowerCase()
-  const cidAt = cidadeAtendida.value.trim().toLowerCase()
+  const cidAt = norm(cidadeAtendida.value.trim())
 
   return (technicians.value ?? []).filter((t) => {
     const matchTerm = !term
       || t.name.toLowerCase().includes(term)
       || t.email.toLowerCase().includes(term)
-    const matchCidade = !cid || (t.cidade ?? '').toLowerCase().includes(cid)
+    const matchUf = uf.value === 'todas' || t.uf === uf.value
     const matchCidAt = !cidAt
-      || (t.cidadesAtendidas ?? []).some(c => c.cidade.toLowerCase().includes(cidAt))
-    return matchTerm && matchCidade && matchCidAt
+      || (t.cidadesAtendidas ?? []).some(c => norm(c.nome).includes(cidAt))
+    return matchTerm && matchUf && matchCidAt
   })
 })
 
-const hasFilters = computed(() => !!(q.value || cidade.value || cidadeAtendida.value))
+const hasFilters = computed(() => !!(q.value || cidadeAtendida.value) || uf.value !== 'todas')
 function limparFiltros() {
   q.value = ''
-  cidade.value = ''
+  uf.value = 'todas'
   cidadeAtendida.value = ''
 }
 
 function cidadeResidencia(t: TechnicianListItem) {
-  return [t.cidade, t.estado].filter(Boolean).join(' / ') || '—'
+  return [t.cidadeNome, t.uf].filter(Boolean).join(' / ') || '—'
+}
+
+// Formata "55929819846" → "(55) 92981-9846" / "(92) 3234-5678".
+function formatarCelular(raw: string) {
+  const d = (raw ?? '').replace(/\D/g, '')
+  if (d.length === 11) return `(${d.slice(0, 2)}) ${d.slice(2, 7)}-${d.slice(7)}`
+  if (d.length === 10) return `(${d.slice(0, 2)}) ${d.slice(2, 6)}-${d.slice(6)}`
+  return raw
+}
+
+async function copiarCelular(t: TechnicianListItem) {
+  try {
+    await navigator.clipboard.writeText(t.celular)
+    toast.add({ title: 'Telefone copiado', description: formatarCelular(t.celular), icon: 'i-lucide-check', color: 'success' })
+  } catch {
+    toast.add({ title: 'Não foi possível copiar', icon: 'i-lucide-alert-circle', color: 'error' })
+  }
 }
 </script>
 
@@ -70,11 +97,11 @@ function cidadeResidencia(t: TechnicianListItem) {
               placeholder="Buscar por nome ou e-mail"
               class="w-full sm:flex-1"
             />
-            <UInput
-              v-model="cidade"
-              icon="i-lucide-map-pin"
-              placeholder="Cidade de residência"
-              class="w-full sm:w-56"
+            <USelect
+              v-model="uf"
+              :items="ufItems"
+              icon="i-lucide-map"
+              class="w-full sm:w-44"
             />
             <UInput
               v-model="cidadeAtendida"
@@ -115,6 +142,19 @@ function cidadeResidencia(t: TechnicianListItem) {
                 </p>
                 <p class="text-muted truncate">
                   {{ t.email }}
+                </p>
+                <p v-if="t.celular" class="text-muted text-xs flex items-center gap-1 mt-0.5">
+                  <UIcon name="i-lucide-phone" class="size-3 shrink-0" />
+                  {{ formatarCelular(t.celular) }}
+                  <UButton
+                    icon="i-lucide-copy"
+                    color="neutral"
+                    variant="ghost"
+                    size="xs"
+                    :ui="{ base: 'p-0.5' }"
+                    aria-label="Copiar telefone"
+                    @click="copiarCelular(t)"
+                  />
                 </p>
                 <p class="text-dimmed text-xs flex items-center gap-1 mt-0.5">
                   <UIcon name="i-lucide-map-pin" class="size-3 shrink-0" />
