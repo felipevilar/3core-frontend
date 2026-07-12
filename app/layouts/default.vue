@@ -236,5 +236,6 @@ onMounted(async () => {
     <slot />
 
     <NotificationsSlideover />
+    <ConfirmDialog />
   </UDashboardGroup>
 </template>

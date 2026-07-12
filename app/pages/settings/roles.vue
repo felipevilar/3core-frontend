@@ -6,6 +6,7 @@ definePageMeta({ permission: 'roles.ver' })
 const { $api } = useNuxtApp()
 const { can } = usePermissions()
 const toast = useToast()
+const { confirm } = useConfirm()
 
 const canManage = can('roles.gerenciar')
 
@@ -77,8 +78,14 @@ async function save() {
 }
 
 async function remove(role: Role) {
-  // eslint-disable-next-line no-alert
-  if (!confirm(`Excluir o papel "${role.name}"?`)) return
+  const ok = await confirm({
+    title: 'Excluir papel',
+    message: `Excluir o papel "${role.name}"? Esta ação não pode ser desfeita.`,
+    confirmLabel: 'Excluir',
+    confirmColor: 'error',
+    icon: 'i-lucide-trash-2'
+  })
+  if (!ok) return
   try {
     await $api(`/roles/${role.id}`, { method: 'DELETE' })
     toast.add({ title: 'Papel excluído', icon: 'i-lucide-check', color: 'success' })

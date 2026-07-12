@@ -332,6 +332,20 @@ export interface CreateChamadoPayload {
   agendadoPara?: string | null
 }
 
+/** Resposta paginada de GET /chamados. */
+export interface Paginated<T> {
+  items: T[]
+  total: number
+  page: number
+  pageSize: number
+}
+
+/** Intervalo de datas (strings YYYY-MM-DD) usado nos filtros. */
+export interface DateRangeYmd {
+  de: string
+  ate: string
+}
+
 /** Linha da folha de pagamento (GET /financeiro/payout). */
 export interface PayoutRow {
   tecnicoUserId: number
