@@ -40,6 +40,30 @@ const allLinks: AppNavItem[][] = [[{
     open.value = false
   }
 }, {
+  label: 'Atendimentos',
+  icon: 'i-lucide-clipboard-list',
+  to: '/chamados',
+  permission: 'atendimentos.ver',
+  onSelect: () => {
+    open.value = false
+  }
+}, {
+  label: 'Financeiro',
+  icon: 'i-lucide-wallet',
+  to: '/financeiro',
+  permission: 'financeiro.ver',
+  onSelect: () => {
+    open.value = false
+  }
+}, {
+  label: 'Meus Ganhos',
+  icon: 'i-lucide-hand-coins',
+  to: '/financeiro/meus-ganhos',
+  permission: 'financeiro.ver_proprio',
+  onSelect: () => {
+    open.value = false
+  }
+}, {
   label: 'Landing Page',
   icon: 'i-lucide-layout-template',
   to: '/landing-config',

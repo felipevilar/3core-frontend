@@ -218,6 +218,152 @@ export interface ClientPayload {
   ativo?: boolean
 }
 
+// ---- Chamados / Financeiro ----
+export type ChamadoStatus =
+  | 'aberto'
+  | 'atribuido'
+  | 'a_caminho'
+  | 'em_atendimento'
+  | 'finalizado'
+  | 'fechado'
+  | 'cancelado'
+
+export type ChamadoPrioridade = 'baixa' | 'media' | 'alta' | 'urgente'
+export type PaymentStatus = 'nao_aplicavel' | 'pendente' | 'aprovado' | 'pago'
+export type LineItemNatureza = 'custo' | 'receita'
+export type LineItemTipo =
+  | 'chamada_fixa'
+  | 'mao_de_obra'
+  | 'deslocamento'
+  | 'extra'
+  | 'ajuste'
+
+export interface ChamadoLineItem {
+  id: number
+  natureza: LineItemNatureza
+  tipo: LineItemTipo
+  descricao: string | null
+  quantidade: string
+  valorUnitario: string
+  valorTotal: string
+  origem: 'auto_snapshot' | 'manual'
+}
+
+/** Chamado (serializado — receita/margem só vêm com financeiro.ver). */
+export interface Chamado {
+  id: number
+  codigo: string
+  titulo: string
+  descricao: string | null
+  prioridade: ChamadoPrioridade
+  status: ChamadoStatus
+  agendadoPara: string | null
+  clientId: number
+  client: { id: number, nome: string, tipo: string } | null
+  cityCode: number | null
+  city: CityRef | null
+  cep: string | null
+  logradouro: string | null
+  numero: string | null
+  complemento: string | null
+  bairro: string | null
+  tecnicoUserId: number | null
+  tecnicoNome: string | null
+  atribuidoEm: string | null
+  aCaminhoEm: string | null
+  chegadaEm: string | null
+  finalizadoEm: string | null
+  fechadoEm: string | null
+  canceladoEm: string | null
+  reabertoEm: string | null
+  motivoCancelamento: string | null
+  motivoReabertura: string | null
+  horasTrabalhadas: string | null
+  kmDeslocamento: string | null
+  custoTecnicoTotal: string
+  valorClienteTotal?: string
+  margem?: string
+  financeiroObs?: string | null
+  paymentStatus: PaymentStatus
+  paymentPeriodo: string | null
+  aprovadoEm: string | null
+  pagoEm: string | null
+  valoresCongeladosEm: string | null
+  createdAt: string
+  updatedAt: string
+  version: number
+  lineItems?: ChamadoLineItem[]
+  avisoSemRat?: boolean
+}
+
+export interface ChamadoEvent {
+  id: number
+  tipo: string
+  statusAnterior: string | null
+  statusNovo: string | null
+  atorEmail: string | null
+  atorRole: string | null
+  nota: string | null
+  metadata: Record<string, unknown> | null
+  createdAt: string
+}
+
+export interface ChamadoRat {
+  id: number
+  storagePath: string
+  fileName: string
+  mimeType: string | null
+  sizeBytes: number | null
+  observacoes: string | null
+  createdAt: string
+}
+
+export interface CreateChamadoPayload {
+  clientId: number
+  titulo: string
+  descricao?: string | null
+  prioridade?: ChamadoPrioridade
+  cityCode?: number | null
+  cep?: string | null
+  logradouro?: string | null
+  numero?: string | null
+  complemento?: string | null
+  bairro?: string | null
+  agendadoPara?: string | null
+}
+
+/** Linha da folha de pagamento (GET /financeiro/payout). */
+export interface PayoutRow {
+  tecnicoUserId: number
+  tecnicoNome: string
+  periodo: string
+  qtdChamados: string
+  totalCusto: string
+  totalPendente: string
+  totalAprovado: string
+  totalPago: string
+}
+
+/** GET /financeiro/meus-ganhos. */
+export interface MeusGanhos {
+  resumo: Array<{
+    periodo: string
+    qtdChamados: string
+    totalCusto: string
+    totalPago: string
+  }>
+  chamados: Array<{
+    id: number
+    codigo: string
+    titulo: string
+    cliente: string | null
+    periodo: string
+    custoTecnicoTotal: string
+    paymentStatus: PaymentStatus
+    finalizadoEm: string | null
+  }>
+}
+
 export interface Stat {
   title: string
   icon: string
