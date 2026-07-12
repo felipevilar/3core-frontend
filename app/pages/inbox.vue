@@ -6,10 +6,10 @@ import type { Mail } from '~/types'
 definePageMeta({ permission: 'inbox.ver' })
 
 const tabItems = [{
-  label: 'All',
+  label: 'Todos',
   value: 'all'
 }, {
-  label: 'Unread',
+  label: 'Não lidos',
   value: 'unread'
 }]
 const selectedTab = ref('all')
@@ -57,7 +57,7 @@ const isMobile = breakpoints.smaller('lg')
     :max-size="30"
     resizable
   >
-    <UDashboardNavbar title="Inbox">
+    <UDashboardNavbar title="Caixa de entrada">
       <template #leading>
         <UDashboardSidebarCollapse />
       </template>

@@ -49,9 +49,9 @@ const columns: TableColumn<Sale>[] = [
   },
   {
     accessorKey: 'date',
-    header: 'Date',
+    header: 'Data',
     cell: ({ row }) => {
-      return new Date(row.getValue('date')).toLocaleString('en-US', {
+      return new Date(row.getValue('date')).toLocaleString('pt-BR', {
         day: 'numeric',
         month: 'short',
         hour: '2-digit',
@@ -77,17 +77,17 @@ const columns: TableColumn<Sale>[] = [
   },
   {
     accessorKey: 'email',
-    header: 'Email'
+    header: 'E-mail'
   },
   {
     accessorKey: 'amount',
-    header: () => h('div', { class: 'text-right' }, 'Amount'),
+    header: () => h('div', { class: 'text-right' }, 'Valor'),
     cell: ({ row }) => {
       const amount = Number.parseFloat(row.getValue('amount'))
 
-      const formatted = new Intl.NumberFormat('en-US', {
+      const formatted = new Intl.NumberFormat('pt-BR', {
         style: 'currency',
-        currency: 'EUR'
+        currency: 'BRL'
       }).format(amount)
 
       return h('div', { class: 'text-right font-medium' }, formatted)

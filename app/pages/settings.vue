@@ -4,12 +4,12 @@ import type { NavigationMenuItem } from '@nuxt/ui'
 const { can } = usePermissions()
 
 const links = computed<NavigationMenuItem[][]>(() => [[{
-  label: 'General',
+  label: 'Perfil',
   icon: 'i-lucide-user',
   to: '/settings',
   exact: true
 }, {
-  label: 'Members',
+  label: 'Membros',
   icon: 'i-lucide-users',
   to: '/settings/members'
 }, ...(can('usuarios.ver')
@@ -25,15 +25,15 @@ const links = computed<NavigationMenuItem[][]>(() => [[{
       to: '/settings/roles'
     }]
   : []), {
-  label: 'Notifications',
+  label: 'Notificações',
   icon: 'i-lucide-bell',
   to: '/settings/notifications'
 }, {
-  label: 'Security',
+  label: 'Segurança',
   icon: 'i-lucide-shield',
   to: '/settings/security'
 }], [{
-  label: 'Documentation',
+  label: 'Documentação',
   icon: 'i-lucide-book-open',
   to: 'https://ui.nuxt.com/docs/getting-started/installation/nuxt',
   target: '_blank'
@@ -43,7 +43,7 @@ const links = computed<NavigationMenuItem[][]>(() => [[{
 <template>
   <UDashboardPanel id="settings" :ui="{ body: 'lg:py-12' }">
     <template #header>
-      <UDashboardNavbar title="Settings">
+      <UDashboardNavbar title="Configurações">
         <template #leading>
           <UDashboardSidebarCollapse />
         </template>
