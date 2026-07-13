@@ -37,10 +37,11 @@ const prioridadeOptions: Opt<string>[] = [
 ]
 
 // Técnicos p/ o multi-select (só faz sentido para gerentes que veem todos).
+// /technicians é paginado ({items,...}); pedimos um lote grande e usamos .items.
 const { data: tecnicos } = await useAsyncData(
   'tecnicos-filtro',
   () => (podeGerenciar && podeVerTecnicos
-    ? $api<TechnicianListItem[]>('/technicians')
+    ? $api<Paginated<TechnicianListItem>>('/technicians', { params: { pageSize: 200 } }).then(r => r.items)
     : Promise.resolve([] as TechnicianListItem[])),
   { default: () => [] as TechnicianListItem[] }
 )

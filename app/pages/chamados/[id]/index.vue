@@ -3,6 +3,7 @@ import type {
   Chamado,
   ChamadoEvent,
   ChamadoRat,
+  Paginated,
   TechnicianListItem
 } from '~/types'
 
@@ -58,7 +59,9 @@ const tecnicoSel = ref<number | undefined>()
 const chamadaFixa = ref('')
 const { data: tecnicos } = await useAsyncData(
   'tecnicos-para-atribuir',
-  () => (podeGerenciar ? $api<TechnicianListItem[]>('/technicians') : Promise.resolve([])),
+  () => (podeGerenciar
+    ? $api<Paginated<TechnicianListItem>>('/technicians', { params: { pageSize: 200 } }).then(r => r.items)
+    : Promise.resolve([] as TechnicianListItem[])),
   { default: () => [] as TechnicianListItem[] }
 )
 const tecnicoItems = computed(() =>
