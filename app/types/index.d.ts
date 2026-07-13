@@ -172,6 +172,45 @@ export interface TechnicianDetail {
   }
 }
 
+/** Corpo aceito por POST /technicians e PATCH /technicians/:id. */
+export interface TechnicianPayload {
+  nome?: string
+  email?: string
+  senha?: string
+  cpf?: string
+  rg?: string | null
+  celular?: string
+  isActive?: boolean
+  endereco?: {
+    cep?: string | null
+    logradouro?: string | null
+    numero?: string | null
+    complemento?: string | null
+    bairro?: string | null
+    cityCode?: number | null
+  }
+  enderecoEncomendas?: string | null
+  pagamento?: {
+    pix?: { chavePix: string, nomeTitularPix: string } | null
+    dadosBancarios?: {
+      banco: string
+      agencia: string
+      conta: string
+      tipoConta: string
+    } | null
+  } | null
+  empresa?: {
+    nomeFantasia: string
+    razaoSocial: string
+    cnpj: string
+  } | null
+  areasAtuacao?: string[]
+  ferramental?: string[]
+  pretensaoValorHora?: string | null
+  custoPorKm?: string | null
+  cidadesAtendidas?: { cityCode: number, custoKm?: string | null }[]
+}
+
 // ---- Clientes ----
 export type ClientType = 'pf' | 'pj'
 
@@ -267,6 +306,7 @@ export interface Chamado {
   numero: string | null
   complemento: string | null
   bairro: string | null
+  pontoReferencia: string | null
   tecnicoUserId: number | null
   tecnicoNome: string | null
   atribuidoEm: string | null
@@ -323,12 +363,13 @@ export interface CreateChamadoPayload {
   titulo: string
   descricao?: string | null
   prioridade?: ChamadoPrioridade
-  cityCode?: number | null
+  cityCode: number
   cep?: string | null
   logradouro?: string | null
   numero?: string | null
   complemento?: string | null
   bairro?: string | null
+  pontoReferencia?: string | null
   agendadoPara?: string | null
 }
 

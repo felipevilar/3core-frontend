@@ -1,51 +1,98 @@
 <script setup lang="ts">
-import type { TechnicianListItem, Uf } from '~/types'
+import type { Paginated, TechnicianListItem, Uf } from '~/types'
 
 definePageMeta({ permission: 'tecnicos.ver' })
 
 const { $api } = useNuxtApp()
+const { can } = usePermissions()
 const toast = useToast()
 
-const { data: technicians, pending } = await useAsyncData('technicians', () =>
-  $api<TechnicianListItem[]>('/technicians')
-)
+const canGerenciar = can('tecnicos.gerenciar')
+
+// ---- Opções dos selects ----
+type Opt<T> = { label: string, value: T }
+
 const { data: ufs } = await useAsyncData('ufs', () => $api<Uf[]>('/cities/ufs'))
+const ufOptions = computed<Opt<string>[]>(() =>
+  (ufs.value ?? []).map(u => ({ label: `${u.uf} — ${u.ufNome}`, value: u.uf }))
+)
 
-const ufItems = computed(() => [
-  { label: 'Todas as UFs', value: 'todas' },
-  ...(ufs.value ?? []).map(u => ({ label: `${u.uf} — ${u.ufNome}`, value: u.uf }))
-])
+const statusOptions: Opt<string>[] = [
+  { label: 'Todos', value: 'todos' },
+  { label: 'Ativo', value: 'ativo' },
+  { label: 'Inativo', value: 'inativo' }
+]
 
-// ---- Filtros (client-side) ----
-const q = ref('')
-const uf = ref('todas')
-const cidadeAtendida = ref('')
-
-function norm(s: string) {
-  return s.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase()
-}
-
-const filtered = computed(() => {
-  const term = q.value.trim().toLowerCase()
-  const cidAt = norm(cidadeAtendida.value.trim())
-
-  return (technicians.value ?? []).filter((t) => {
-    const matchTerm = !term
-      || t.name.toLowerCase().includes(term)
-      || t.email.toLowerCase().includes(term)
-    const matchUf = uf.value === 'todas' || t.uf === uf.value
-    const matchCidAt = !cidAt
-      || (t.cidadesAtendidas ?? []).some(c => norm(c.nome).includes(cidAt))
-    return matchTerm && matchUf && matchCidAt
-  })
+// ---- Estado dos filtros (rascunho — só vai ao backend no "Filtrar") ----
+const draft = reactive({
+  search: '',
+  uf: [] as Opt<string>[],
+  status: 'todos',
+  cidadeAtendida: ''
 })
 
-const hasFilters = computed(() => !!(q.value || cidadeAtendida.value) || uf.value !== 'todas')
-function limparFiltros() {
-  q.value = ''
-  uf.value = 'todas'
-  cidadeAtendida.value = ''
+// Parâmetros efetivamente aplicados (mudam só no Filtrar / troca de página).
+const page = ref(1)
+const pageSize = ref(50)
+const applied = ref<Record<string, unknown>>({})
+
+function buildParams(): Record<string, unknown> {
+  const p: Record<string, unknown> = {}
+  if (draft.search.trim()) p.search = draft.search.trim()
+  if (draft.uf.length) p.uf = draft.uf.map(u => u.value)
+  if (draft.status !== 'todos') p.status = draft.status
+  if (draft.cidadeAtendida.trim()) p.cidadeAtendida = draft.cidadeAtendida.trim()
+  return p
 }
+
+// useAsyncData observa só `page`; mudanças de pageSize/filtros são tratadas
+// explicitamente abaixo para garantir exatamente um refetch por ação.
+const { data, pending, refresh } = await useAsyncData(
+  'technicians-list',
+  () => $api<Paginated<TechnicianListItem>>('/technicians', {
+    params: { ...applied.value, page: page.value, pageSize: pageSize.value }
+  }),
+  { watch: [page] }
+)
+
+// Trocar o tamanho da página volta para a página 1 (evita encalhar numa
+// página vazia além do total). Se já estiver na 1, refaz a busca diretamente.
+watch(pageSize, () => {
+  if (page.value !== 1) page.value = 1
+  else refresh()
+})
+
+// Aplica os filtros do rascunho e volta à página 1.
+function filtrar() {
+  applied.value = buildParams()
+  if (page.value === 1) refresh()
+  else page.value = 1 // o watch de page dispara o refresh
+}
+
+function limpar() {
+  draft.search = ''
+  draft.uf = []
+  draft.status = 'todos'
+  draft.cidadeAtendida = ''
+  applied.value = {}
+  if (page.value === 1) refresh()
+  else page.value = 1
+}
+
+const pageSizeItems = [
+  { label: '50 / página', value: 50 },
+  { label: '100 / página', value: 100 },
+  { label: '200 / página', value: 200 }
+]
+
+const items = computed(() => data.value?.items ?? [])
+const total = computed(() => data.value?.total ?? 0)
+const rangeLabel = computed(() => {
+  if (!total.value) return '0 técnicos'
+  const ini = (page.value - 1) * pageSize.value + 1
+  const fim = Math.min(page.value * pageSize.value, total.value)
+  return `${ini}–${fim} de ${total.value}`
+})
 
 function cidadeResidencia(t: TechnicianListItem) {
   return [t.cidadeNome, t.uf].filter(Boolean).join(' / ') || '—'
@@ -76,50 +123,81 @@ async function copiarCelular(t: TechnicianListItem) {
         <template #leading>
           <UDashboardSidebarCollapse />
         </template>
+        <template #right>
+          <UButton
+            v-if="canGerenciar"
+            label="Novo técnico"
+            icon="i-lucide-plus"
+            to="/technicians/novo"
+          />
+        </template>
       </UDashboardNavbar>
     </template>
 
     <template #body>
       <UPageCard
         title="Técnicos"
-        description="Consulte os técnicos cadastrados e visualize a ficha completa."
+        description="Consulte os técnicos cadastrados, filtre e gerencie a ficha completa."
         variant="naked"
         orientation="horizontal"
         class="mb-4"
       />
 
-      <UPageCard variant="subtle" :ui="{ container: 'p-0 sm:p-0 gap-y-0', wrapper: 'items-stretch', header: 'p-4 mb-0 border-b border-default' }">
-        <template #header>
-          <div class="flex flex-col gap-3 sm:flex-row sm:items-center">
-            <UInput
-              v-model="q"
-              icon="i-lucide-search"
-              placeholder="Buscar por nome ou e-mail"
-              class="w-full sm:flex-1"
+      <!-- Filtros -->
+      <UPageCard variant="subtle" class="mb-4">
+        <div class="space-y-3">
+          <UInput
+            v-model="draft.search"
+            icon="i-lucide-search"
+            placeholder="Buscar por nome ou e-mail"
+            class="w-full"
+            @keydown.enter="filtrar"
+          />
+
+          <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+            <USelectMenu
+              v-model="draft.uf"
+              :items="ufOptions"
+              multiple
+              placeholder="UF"
+              icon="i-lucide-map"
             />
             <USelect
-              v-model="uf"
-              :items="ufItems"
-              icon="i-lucide-map"
-              class="w-full sm:w-44"
+              v-model="draft.status"
+              :items="statusOptions"
+              icon="i-lucide-activity"
             />
             <UInput
-              v-model="cidadeAtendida"
+              v-model="draft.cidadeAtendida"
               icon="i-lucide-route"
               placeholder="Cidade atendida"
-              class="w-full sm:w-56"
+              @keydown.enter="filtrar"
             />
+          </div>
+
+          <div class="flex items-center justify-end gap-2">
             <UButton
-              v-if="hasFilters"
               label="Limpar"
               color="neutral"
               variant="ghost"
               icon="i-lucide-x"
-              class="shrink-0"
-              @click="limparFiltros"
+              @click="limpar"
+            />
+            <UButton
+              label="Filtrar"
+              icon="i-lucide-filter"
+              :loading="pending"
+              @click="filtrar"
             />
           </div>
-        </template>
+        </div>
+      </UPageCard>
+
+      <!-- Lista -->
+      <UPageCard variant="subtle" :ui="{ container: 'p-0 sm:p-0 gap-y-0' }">
+        <div class="flex items-center justify-between gap-3 px-4 sm:px-6 py-2 border-b border-default bg-elevated/30 text-xs text-muted">
+          <span>{{ rangeLabel }}</span>
+        </div>
 
         <div v-if="pending" class="py-10 flex justify-center">
           <UIcon name="i-lucide-loader-circle" class="size-6 animate-spin text-muted" />
@@ -127,9 +205,9 @@ async function copiarCelular(t: TechnicianListItem) {
 
         <ul v-else role="list" class="divide-y divide-default">
           <li
-            v-for="t in filtered"
+            v-for="t in items"
             :key="t.id"
-            class="flex items-center justify-between gap-3 py-3 px-4 sm:px-6"
+            class="flex items-center justify-between gap-3 py-3 px-4 sm:px-6 hover:bg-elevated/30 transition-colors"
           >
             <div class="flex items-center gap-3 min-w-0">
               <UAvatar :alt="t.name" size="md" />
@@ -168,7 +246,7 @@ async function copiarCelular(t: TechnicianListItem) {
             </div>
 
             <UButton
-              label="Ver ficha"
+              label="Ver"
               icon="i-lucide-eye"
               color="neutral"
               variant="subtle"
@@ -178,10 +256,22 @@ async function copiarCelular(t: TechnicianListItem) {
             />
           </li>
 
-          <li v-if="!filtered.length" class="py-10 text-center text-sm text-muted">
-            Nenhum técnico encontrado.
+          <li v-if="!items.length" class="py-10 text-center text-sm text-muted">
+            Nenhum técnico encontrado com os filtros atuais.
           </li>
         </ul>
+
+        <!-- Paginação -->
+        <div class="flex flex-col sm:flex-row items-center justify-between gap-3 px-4 sm:px-6 py-3 border-t border-default">
+          <USelect v-model="pageSize" :items="pageSizeItems" class="w-40" />
+          <UPagination
+            v-model:page="page"
+            :total="total"
+            :items-per-page="pageSize"
+            :sibling-count="1"
+            show-edges
+          />
+        </div>
       </UPageCard>
     </template>
   </UDashboardPanel>

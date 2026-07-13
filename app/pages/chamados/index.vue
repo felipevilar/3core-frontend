@@ -210,14 +210,40 @@ function dataHora(iso: string | null): string {
           </div>
 
           <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
-            <DateRangePicker v-model="draft.criado" label="Criado" placeholder="Qualquer data" color="var(--color-brand-blue-light)" />
-            <DateRangePicker v-model="draft.agendado" label="Agendado" placeholder="Qualquer data" color="var(--color-brand-orange)" />
-            <DateRangePicker v-model="draft.finalizado" label="Finalizado" placeholder="Qualquer data" color="var(--color-green-500)" />
+            <DateRangePicker
+              v-model="draft.criado"
+              label="Criado"
+              placeholder="Qualquer data"
+              color="var(--color-brand-blue-light)"
+            />
+            <DateRangePicker
+              v-model="draft.agendado"
+              label="Agendado"
+              placeholder="Qualquer data"
+              color="var(--color-brand-orange)"
+            />
+            <DateRangePicker
+              v-model="draft.finalizado"
+              label="Finalizado"
+              placeholder="Qualquer data"
+              color="var(--color-green-500)"
+            />
           </div>
 
           <div class="flex items-center justify-end gap-2">
-            <UButton label="Limpar" color="neutral" variant="ghost" icon="i-lucide-x" @click="limpar" />
-            <UButton label="Filtrar" icon="i-lucide-filter" :loading="pending" @click="filtrar" />
+            <UButton
+              label="Limpar"
+              color="neutral"
+              variant="ghost"
+              icon="i-lucide-x"
+              @click="limpar"
+            />
+            <UButton
+              label="Filtrar"
+              icon="i-lucide-filter"
+              :loading="pending"
+              @click="filtrar"
+            />
           </div>
         </div>
       </UPageCard>
@@ -258,18 +284,22 @@ function dataHora(iso: string | null): string {
                   <UIcon name="i-lucide-calendar-plus" class="size-3" /> Criado {{ dataHora(c.createdAt) }}
                 </span>
                 <span v-if="c.agendadoPara" class="text-brand-orange inline-flex items-center gap-1">
-                  <UIcon name="i-lucide-calendar-clock" class="size-3" /> Agendado {{ dataCurta(c.agendadoPara) }}
+                  <UIcon name="i-lucide-calendar-clock" class="size-3" /> Agendado {{ dataHora(c.agendadoPara) }}
                 </span>
                 <span v-if="c.finalizadoEm" class="text-green-500 inline-flex items-center gap-1">
-                  <UIcon name="i-lucide-calendar-check" class="size-3" /> Finalizado {{ dataCurta(c.finalizadoEm) }}
+                  <UIcon name="i-lucide-calendar-check" class="size-3" /> Finalizado {{ dataHora(c.finalizadoEm) }}
                 </span>
               </p>
             </div>
 
             <div class="flex items-center gap-3 shrink-0">
               <div v-if="Number(c.custoTecnicoTotal) > 0" class="text-right hidden sm:block">
-                <p class="text-highlighted text-sm font-medium">{{ brl(c.custoTecnicoTotal) }}</p>
-                <p class="text-dimmed text-[10px] uppercase tracking-wide">custo técnico</p>
+                <p class="text-highlighted text-sm font-medium">
+                  {{ brl(c.custoTecnicoTotal) }}
+                </p>
+                <p class="text-dimmed text-[10px] uppercase tracking-wide">
+                  custo técnico
+                </p>
               </div>
               <UBadge
                 v-if="c.status === 'fechado' && c.paymentStatus !== 'nao_aplicavel'"

@@ -161,6 +161,20 @@ const marcarPago = () => acao(() => $api(`/chamados/${id}/pagamento`, { method: 
 const custoItems = computed(() => (chamado.value?.lineItems ?? []).filter(i => i.natureza === 'custo'))
 const receitaItems = computed(() => (chamado.value?.lineItems ?? []).filter(i => i.natureza === 'receita'))
 
+// Endereço do atendimento formatado em linhas (só as partes preenchidas).
+const enderecoLinhas = computed<string[]>(() => {
+  const c = chamado.value
+  if (!c) return []
+  const linhas: string[] = []
+  const l1 = [c.logradouro, c.numero].filter(Boolean).join(', ')
+  if (l1) linhas.push(c.complemento ? `${l1} — ${c.complemento}` : l1)
+  else if (c.complemento) linhas.push(c.complemento)
+  const l2 = [c.bairro, c.city ? `${c.city.nome}/${c.city.uf}` : null].filter(Boolean).join(' • ')
+  if (l2) linhas.push(l2)
+  if (c.cep) linhas.push(`CEP ${c.cep}`)
+  return linhas
+})
+
 // ---- RAT: upload (dono ou gestor) + download via signed URL ----
 const podeAnexarRat = computed(() =>
   chamado.value
@@ -390,6 +404,17 @@ async function removerRat(ratId: number, fileName: string) {
                   </dt>
                   <dd class="text-highlighted text-right">
                     {{ chamado.horasTrabalhadas }}h • {{ chamado.kmDeslocamento }} km
+                  </dd>
+                </div>
+                <div v-if="enderecoLinhas.length" class="pt-1">
+                  <dt class="text-muted text-xs mb-0.5">
+                    Endereço do atendimento
+                  </dt>
+                  <dd class="text-highlighted">
+                    <p v-for="(linha, i) in enderecoLinhas" :key="i">{{ linha }}</p>
+                    <p v-if="chamado.pontoReferencia" class="text-muted text-xs mt-0.5">
+                      Referência: {{ chamado.pontoReferencia }}
+                    </p>
                   </dd>
                 </div>
               </dl>

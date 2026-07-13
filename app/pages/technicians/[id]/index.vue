@@ -5,8 +5,13 @@ definePageMeta({ permission: 'tecnicos.ver' })
 
 const route = useRoute()
 const { $api } = useNuxtApp()
+const { can } = usePermissions()
+const { confirm } = useConfirm()
+const toast = useToast()
 
-const { data: ficha, error } = await useAsyncData(
+const canGerenciar = can('tecnicos.gerenciar')
+
+const { data: ficha, error, refresh } = await useAsyncData(
   `technician-${route.params.id}`,
   () => $api<TechnicianDetail>(`/technicians/${route.params.id}`)
 )
@@ -24,6 +29,59 @@ const tipoContaLabel: Record<string, string> = {
   corrente: 'Conta corrente',
   poupanca: 'Conta poupança'
 }
+
+// ---- Ativar / desativar ----
+const togglingStatus = ref(false)
+async function toggleStatus() {
+  if (!ficha.value) return
+  const ativar = !ficha.value.user.isActive
+  const ok = await confirm({
+    title: ativar ? 'Ativar técnico' : 'Desativar técnico',
+    message: ativar
+      ? `Deseja reativar o acesso de ${ficha.value.user.name}?`
+      : `Deseja desativar ${ficha.value.user.name}? Ele perderá o acesso ao painel.`,
+    confirmLabel: ativar ? 'Ativar' : 'Desativar',
+    confirmColor: ativar ? 'primary' : 'warning',
+    icon: ativar ? 'i-lucide-user-check' : 'i-lucide-user-x'
+  })
+  if (!ok) return
+  togglingStatus.value = true
+  try {
+    await $api(`/technicians/${route.params.id}/status`, { method: 'PATCH', body: { isActive: ativar } })
+    toast.add({ title: ativar ? 'Técnico ativado' : 'Técnico desativado', icon: 'i-lucide-check', color: 'success' })
+    await refresh()
+  } catch (e: unknown) {
+    const err = e as { data?: { message?: string } }
+    toast.add({ title: err?.data?.message ?? 'Erro ao atualizar status', icon: 'i-lucide-alert-circle', color: 'error' })
+  } finally {
+    togglingStatus.value = false
+  }
+}
+
+// ---- Exclusão ----
+const deleting = ref(false)
+async function excluir() {
+  if (!ficha.value) return
+  const ok = await confirm({
+    title: 'Excluir técnico',
+    message: `Tem certeza que deseja excluir ${ficha.value.user.name}? Esta ação não pode ser desfeita.`,
+    confirmLabel: 'Excluir',
+    confirmColor: 'error',
+    icon: 'i-lucide-trash-2'
+  })
+  if (!ok) return
+  deleting.value = true
+  try {
+    await $api(`/technicians/${route.params.id}`, { method: 'DELETE' })
+    toast.add({ title: 'Técnico excluído', icon: 'i-lucide-check', color: 'success' })
+    await navigateTo('/technicians')
+  } catch (e: unknown) {
+    const err = e as { data?: { message?: string } }
+    toast.add({ title: err?.data?.message ?? 'Erro ao excluir técnico', icon: 'i-lucide-alert-circle', color: 'error' })
+  } finally {
+    deleting.value = false
+  }
+}
 </script>
 
 <template>
@@ -37,6 +95,31 @@ const tipoContaLabel: Record<string, string> = {
             variant="ghost"
             to="/technicians"
             aria-label="Voltar para técnicos"
+          />
+        </template>
+        <template v-if="ficha && canGerenciar" #right>
+          <UButton
+            label="Editar"
+            icon="i-lucide-pencil"
+            color="neutral"
+            variant="subtle"
+            :to="`/technicians/${ficha.id}/editar`"
+          />
+          <UButton
+            :label="ficha.user.isActive ? 'Desativar' : 'Ativar'"
+            :icon="ficha.user.isActive ? 'i-lucide-user-x' : 'i-lucide-user-check'"
+            :color="ficha.user.isActive ? 'warning' : 'primary'"
+            variant="subtle"
+            :loading="togglingStatus"
+            @click="toggleStatus"
+          />
+          <UButton
+            label="Excluir"
+            icon="i-lucide-trash-2"
+            color="error"
+            variant="subtle"
+            :loading="deleting"
+            @click="excluir"
           />
         </template>
       </UDashboardNavbar>
