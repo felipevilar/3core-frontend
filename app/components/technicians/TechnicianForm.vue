@@ -14,8 +14,6 @@ const emit = defineEmits<{
 
 const { $api } = useNuxtApp()
 
-const isCreate = computed(() => !props.initial)
-
 // ---- Grupos de opções (áreas / ferramental) vindos do landing-config ----
 interface OptionItem { id: number, label: string, active: boolean }
 interface OptionGroup { id: number, name: string, active: boolean, items: OptionItem[] }
@@ -46,7 +44,6 @@ function mergeOptions(target: Ref<string[]>, base: string[], selected: string[])
 interface FormState {
   nome: string
   email: string
-  senha: string
   cpf: string
   rg: string
   celular: string
@@ -71,7 +68,6 @@ const i = props.initial
 const state = reactive<FormState>({
   nome: i?.user.name ?? '',
   email: i?.user.email ?? '',
-  senha: '',
   cpf: i?.cpf ?? '',
   rg: i?.rg ?? '',
   celular: i?.celular ?? '',
@@ -165,7 +161,7 @@ async function buscarCep() {
 }
 
 // ---- Validação + submit ----
-const errors = reactive<{ nome?: string, email?: string, senha?: string, cpf?: string }>({})
+const errors = reactive<{ nome?: string, email?: string, cpf?: string }>({})
 
 function clean(v: string): string | null {
   const t = v.trim()
@@ -177,13 +173,8 @@ function onSubmit() {
   errors.nome = state.nome.trim().length >= 2 ? undefined : 'Informe o nome (mín. 2 caracteres)'
   errors.email = emailRe.test(state.email.trim()) ? undefined : 'Informe um e-mail válido'
   errors.cpf = state.cpf.trim().length ? undefined : 'CPF é obrigatório'
-  // Senha obrigatória ao criar; ao editar, só valida se algo foi digitado.
-  const senhaInformada = state.senha.length > 0
-  errors.senha = (isCreate.value || senhaInformada)
-    ? (state.senha.length >= 8 ? undefined : 'A senha deve ter pelo menos 8 caracteres')
-    : undefined
 
-  if (errors.nome || errors.email || errors.cpf || errors.senha) return
+  if (errors.nome || errors.email || errors.cpf) return
 
   const payload: TechnicianPayload = {
     nome: state.nome.trim(),
@@ -230,9 +221,6 @@ function onSubmit() {
       .map(c => ({ cityCode: c.cityCode as number, custoKm: clean(c.custoKm) }))
   }
 
-  // Só envia senha quando criando ou quando uma nova senha foi digitada.
-  if (isCreate.value || senhaInformada) payload.senha = state.senha
-
   emit('submit', payload)
 }
 </script>
@@ -253,14 +241,6 @@ function onSubmit() {
         </UFormField>
         <UFormField label="E-mail" required :error="errors.email">
           <UInput v-model="state.email" type="email" class="w-full" placeholder="tecnico@exemplo.com" />
-        </UFormField>
-        <UFormField
-          label="Senha"
-          :required="isCreate"
-          :error="errors.senha"
-          :help="isCreate ? 'Mínimo 8 caracteres' : 'Deixe em branco para manter a senha atual'"
-        >
-          <UInput v-model="state.senha" type="password" class="w-full" placeholder="Mínimo 8 caracteres" autocomplete="new-password" />
         </UFormField>
         <UFormField label="Celular">
           <UInput v-model="state.celular" class="w-full" placeholder="(00) 00000-0000" />
