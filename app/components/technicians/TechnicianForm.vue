@@ -44,6 +44,7 @@ function mergeOptions(target: Ref<string[]>, base: string[], selected: string[])
 interface FormState {
   nome: string
   email: string
+  senha: string
   cpf: string
   rg: string
   celular: string
@@ -65,9 +66,11 @@ interface FormState {
 }
 
 const i = props.initial
+const isNew = !i
 const state = reactive<FormState>({
   nome: i?.user.name ?? '',
   email: i?.user.email ?? '',
+  senha: '',
   cpf: i?.cpf ?? '',
   rg: i?.rg ?? '',
   celular: i?.celular ?? '',
@@ -134,34 +137,9 @@ function removerCidade(index: number) {
   servedCities.splice(index, 1)
 }
 
-// ---- ViaCEP ----
-const cepLoading = ref(false)
-async function buscarCep() {
-  const cepLimpo = state.cep.replace(/\D/g, '')
-  if (cepLimpo.length !== 8) return
-  cepLoading.value = true
-  try {
-    const data = await $fetch<{
-      logradouro?: string
-      bairro?: string
-      ibge?: string
-      erro?: boolean
-    }>(`https://viacep.com.br/ws/${cepLimpo}/json/`)
-    if (!data.erro) {
-      if (data.logradouro) state.logradouro = data.logradouro
-      if (data.bairro) state.bairro = data.bairro
-      // ViaCEP retorna o código IBGE do município — identidade da cidade.
-      if (data.ibge) residenceCityCode.value = Number(data.ibge)
-    }
-  } catch {
-    // CEP não localizado — preenchimento manual.
-  } finally {
-    cepLoading.value = false
-  }
-}
 
 // ---- Validação + submit ----
-const errors = reactive<{ nome?: string, email?: string, cpf?: string }>({})
+const errors = reactive<{ nome?: string, email?: string, cpf?: string, senha?: string }>({})
 
 function clean(v: string): string | null {
   const t = v.trim()
@@ -173,12 +151,14 @@ function onSubmit() {
   errors.nome = state.nome.trim().length >= 2 ? undefined : 'Informe o nome (mín. 2 caracteres)'
   errors.email = emailRe.test(state.email.trim()) ? undefined : 'Informe um e-mail válido'
   errors.cpf = state.cpf.trim().length ? undefined : 'CPF é obrigatório'
+  errors.senha = (!isNew || state.senha.trim().length >= 8) ? undefined : 'Senha deve ter no mínimo 8 caracteres'
 
-  if (errors.nome || errors.email || errors.cpf) return
+  if (errors.nome || errors.email || errors.cpf || errors.senha) return
 
   const payload: TechnicianPayload = {
     nome: state.nome.trim(),
     email: state.email.trim(),
+    ...(isNew && { senha: state.senha }),
     cpf: state.cpf.trim(),
     rg: clean(state.rg),
     celular: state.celular.replace(/\D/g, ''),
@@ -242,6 +222,9 @@ function onSubmit() {
         <UFormField label="E-mail" required :error="errors.email">
           <UInput v-model="state.email" type="email" class="w-full" placeholder="tecnico@exemplo.com" />
         </UFormField>
+        <UFormField v-if="isNew" label="Senha" required :error="errors.senha">
+          <UInput v-model="state.senha" type="password" class="w-full" placeholder="Mínimo 8 caracteres" />
+        </UFormField>
         <UFormField label="Celular">
           <UInput v-model="state.celular" class="w-full" placeholder="(00) 00000-0000" />
         </UFormField>
@@ -259,46 +242,16 @@ function onSubmit() {
       <h3 class="text-xs font-semibold uppercase tracking-wider text-muted">
         Endereço
       </h3>
+      <AddressForm
+        v-model:cep="state.cep"
+        v-model:logradouro="state.logradouro"
+        v-model:numero="state.numero"
+        v-model:complemento="state.complemento"
+        v-model:bairro="state.bairro"
+        v-model:city-code="residenceCityCode"
+        :city-initial-label="residenceCityLabel"
+      />
       <div class="grid grid-cols-1 sm:grid-cols-6 gap-4">
-        <UFormField label="CEP" class="sm:col-span-2">
-          <UInput
-            v-model="state.cep"
-            class="w-full"
-            placeholder="00000-000"
-            :loading="cepLoading"
-            @blur="buscarCep"
-          >
-            <template #trailing>
-              <UButton
-                icon="i-lucide-search"
-                color="neutral"
-                variant="link"
-                size="xs"
-                aria-label="Buscar CEP"
-                @click="buscarCep"
-              />
-            </template>
-          </UInput>
-        </UFormField>
-        <UFormField label="Logradouro" class="sm:col-span-3">
-          <UInput v-model="state.logradouro" class="w-full" />
-        </UFormField>
-        <UFormField label="Número" class="sm:col-span-1">
-          <UInput v-model="state.numero" class="w-full" />
-        </UFormField>
-        <UFormField label="Complemento" class="sm:col-span-3">
-          <UInput v-model="state.complemento" class="w-full" />
-        </UFormField>
-        <UFormField label="Bairro" class="sm:col-span-3">
-          <UInput v-model="state.bairro" class="w-full" />
-        </UFormField>
-        <UFormField label="Cidade" class="sm:col-span-3" help="Busque pelo nome e selecione o município">
-          <CityAutocomplete
-            v-model="residenceCityCode"
-            :initial-label="residenceCityLabel"
-            placeholder="Ex.: Manaus"
-          />
-        </UFormField>
         <UFormField label="Endereço para encomendas" class="sm:col-span-3" help="Onde a 3CORE envia equipamentos">
           <UInput v-model="state.enderecoEncomendas" class="w-full" placeholder="Rua, Nº, Bairro, Cidade/UF" />
         </UFormField>
