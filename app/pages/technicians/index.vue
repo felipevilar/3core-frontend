@@ -207,14 +207,20 @@ async function copiarCelular(t: TechnicianListItem) {
           <li
             v-for="t in items"
             :key="t.id"
-            class="flex items-center justify-between gap-3 py-3 px-4 sm:px-6 hover:bg-elevated/30 transition-colors"
+            class="flex flex-col sm:flex-row items-center justify-between gap-3 py-3 px-4 sm:px-6 hover:bg-elevated/30 transition-colors"
           >
             <div class="flex items-center gap-3 min-w-0">
               <UAvatar :alt="t.name" size="md" />
               <div class="text-sm min-w-0">
                 <p class="text-highlighted font-medium truncate">
                   {{ t.name }}
-                  <UBadge v-if="!t.isActive" color="neutral" variant="subtle" size="sm" class="ml-1">
+                  <UBadge
+                    v-if="!t.isActive"
+                    color="neutral"
+                    variant="subtle"
+                    size="sm"
+                    class="ml-1"
+                  >
                     inativo
                   </UBadge>
                 </p>
@@ -248,10 +254,10 @@ async function copiarCelular(t: TechnicianListItem) {
             <UButton
               label="Ver"
               icon="i-lucide-eye"
-              color="neutral"
+              color="success"
               variant="subtle"
               size="sm"
-              class="shrink-0"
+              class="w-full sm:w-auto shrink-0 justify-center"
               :to="`/technicians/${t.id}`"
             />
           </li>

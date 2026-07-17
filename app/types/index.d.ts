@@ -260,6 +260,7 @@ export interface ClientPayload {
 // ---- Chamados / Financeiro ----
 export type ChamadoStatus =
   | 'aberto'
+  | 'solicitado'
   | 'atribuido'
   | 'a_caminho'
   | 'em_atendimento'
@@ -294,6 +295,8 @@ export interface Chamado {
   codigo: string
   titulo: string
   descricao: string | null
+  chamadoInterno: string | null
+  chamadoExterno: string | null
   prioridade: ChamadoPrioridade
   status: ChamadoStatus
   agendadoPara: string | null
@@ -362,6 +365,8 @@ export interface CreateChamadoPayload {
   clientId: number
   titulo: string
   descricao?: string | null
+  chamadoInterno?: string | null
+  chamadoExterno?: string | null
   prioridade?: ChamadoPrioridade
   cityCode: number
   cep?: string | null
@@ -370,6 +375,26 @@ export interface CreateChamadoPayload {
   complemento?: string | null
   bairro?: string | null
   pontoReferencia?: string | null
+  agendadoPara?: string | null
+}
+
+/**
+ * Corpo aceito por PATCH /chamados/:id. Campos omitidos permanecem; string
+ * vazia limpa o campo; `agendadoPara: null` remove o agendamento.
+ */
+export interface UpdateChamadoPayload {
+  titulo?: string
+  descricao?: string
+  chamadoInterno?: string
+  chamadoExterno?: string
+  prioridade?: ChamadoPrioridade
+  cityCode?: number
+  cep?: string
+  logradouro?: string
+  numero?: string
+  complemento?: string
+  bairro?: string
+  pontoReferencia?: string
   agendadoPara?: string | null
 }
 

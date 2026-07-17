@@ -21,6 +21,8 @@ const state = reactive({
   cityCode: null as number | null,
   titulo: '',
   descricao: '',
+  chamadoInterno: '',
+  chamadoExterno: '',
   prioridade: 'media' as CreateChamadoPayload['prioridade'],
   agendadoPara: '' as string,
   // Endereço do atendimento (opcional).
@@ -33,7 +35,7 @@ const state = reactive({
 })
 
 // Seção de endereço recolhida por padrão (é opcional).
-const mostrarEndereco = ref(false)
+const mostrarEndereco = ref(true)
 const cepLoading = ref(false)
 
 // Rótulo + chave de remontagem do CityAutocomplete. Sempre que preenchemos a
@@ -119,6 +121,8 @@ async function salvar() {
       cityCode: state.cityCode!,
       titulo: state.titulo.trim(),
       descricao: clean(state.descricao),
+      chamadoInterno: clean(state.chamadoInterno),
+      chamadoExterno: clean(state.chamadoExterno),
       prioridade: state.prioridade,
       cep: clean(state.cep),
       logradouro: clean(state.logradouro),
@@ -174,22 +178,22 @@ async function salvar() {
           </UFormField>
 
           <UFormField label="Descrição">
-            <UTextarea v-model="state.descricao" class="w-full" :rows="4" placeholder="Detalhes do atendimento" />
-          </UFormField>
-
-          <UFormField
-            label="Cidade do atendimento"
-            required
-            :error="errors.cityCode"
-            help="Local onde o serviço será realizado — pode ser diferente da cidade do cliente."
-          >
-            <CityAutocomplete
-              :key="cityKey"
-              v-model="state.cityCode"
-              :initial-label="cityLabel"
-              placeholder="Buscar cidade"
+            <UTextarea
+              v-model="state.descricao"
+              class="w-full"
+              :rows="4"
+              placeholder="Detalhes do atendimento"
             />
           </UFormField>
+
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <UFormField label="Chamado interno">
+              <UInput v-model="state.chamadoInterno" class="w-full" placeholder="Ex.: 12345" />
+            </UFormField>
+            <UFormField label="Chamado externo">
+              <UInput v-model="state.chamadoExterno" class="w-full" placeholder="Ex.: INC-00987" />
+            </UFormField>
+          </div>
 
           <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <UFormField label="Prioridade">
@@ -257,6 +261,19 @@ async function salvar() {
                 </UFormField>
               </div>
 
+              <UFormField
+                label="Cidade do atendimento"
+                required
+                :error="errors.cityCode"
+              >
+                <CityAutocomplete
+                  :key="cityKey"
+                  v-model="state.cityCode"
+                  :initial-label="cityLabel"
+                  placeholder="Buscar cidade"
+                />
+              </UFormField>
+
               <UFormField label="Ponto de referência">
                 <UInput v-model="state.pontoReferencia" class="w-full" placeholder="Ex.: próximo ao mercado central" />
               </UFormField>
@@ -268,8 +285,18 @@ async function salvar() {
           </p>
 
           <div class="flex justify-end gap-2 border-t border-default pt-4">
-            <UButton label="Cancelar" color="neutral" variant="subtle" @click="navigateTo('/chamados')" />
-            <UButton type="submit" label="Criar chamado" icon="i-lucide-check" :loading="submitting" />
+            <UButton
+              label="Cancelar"
+              color="neutral"
+              variant="subtle"
+              @click="navigateTo('/chamados')"
+            />
+            <UButton
+              type="submit"
+              label="Criar chamado"
+              icon="i-lucide-check"
+              :loading="submitting"
+            />
           </div>
         </form>
       </div>
