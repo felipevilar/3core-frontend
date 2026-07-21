@@ -64,6 +64,7 @@ const isPJ = computed(() => state.tipo === 'pj')
 
 const errors = reactive<{ nome?: string }>({})
 
+
 function onSubmit() {
   errors.nome = state.nome.trim().length >= 2 ? undefined : 'Informe o nome (mín. 2 caracteres)'
   if (errors.nome) return
@@ -153,30 +154,15 @@ function onSubmit() {
       <h3 class="text-xs font-semibold uppercase tracking-wider text-muted">
         Endereço
       </h3>
-      <div class="grid grid-cols-1 sm:grid-cols-6 gap-4">
-        <UFormField label="CEP" class="sm:col-span-2">
-          <UInput v-model="state.cep" class="w-full" placeholder="00000-000" />
-        </UFormField>
-        <UFormField label="Logradouro" class="sm:col-span-3">
-          <UInput v-model="state.logradouro" class="w-full" />
-        </UFormField>
-        <UFormField label="Número" class="sm:col-span-1">
-          <UInput v-model="state.numero" class="w-full" />
-        </UFormField>
-        <UFormField label="Complemento" class="sm:col-span-3">
-          <UInput v-model="state.complemento" class="w-full" />
-        </UFormField>
-        <UFormField label="Bairro" class="sm:col-span-3">
-          <UInput v-model="state.bairro" class="w-full" />
-        </UFormField>
-        <UFormField label="Cidade" class="sm:col-span-3" help="Busque pelo nome e selecione o município">
-          <CityAutocomplete
-            v-model="cityCode"
-            :initial-label="cityLabel"
-            placeholder="Ex.: Manaus"
-          />
-        </UFormField>
-      </div>
+      <AddressForm
+        v-model:cep="state.cep"
+        v-model:logradouro="state.logradouro"
+        v-model:numero="state.numero"
+        v-model:complemento="state.complemento"
+        v-model:bairro="state.bairro"
+        v-model:city-code="cityCode"
+        :city-initial-label="cityLabel"
+      />
     </section>
 
     <!-- Observações -->

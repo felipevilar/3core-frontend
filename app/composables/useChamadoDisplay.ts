@@ -4,6 +4,7 @@ type BadgeColor = 'neutral' | 'primary' | 'success' | 'warning' | 'error' | 'inf
 
 const STATUS_META: Record<ChamadoStatus, { label: string, color: BadgeColor }> = {
   aberto: { label: 'Aberto', color: 'neutral' },
+  solicitado: { label: 'Solicitado', color: 'warning' },
   atribuido: { label: 'Atribuído', color: 'info' },
   a_caminho: { label: 'A caminho', color: 'info' },
   em_atendimento: { label: 'Em atendimento', color: 'warning' },
@@ -30,6 +31,9 @@ const EVENT_LABEL: Record<string, string> = {
   criado: 'Chamado criado',
   atribuido: 'Técnico atribuído',
   reatribuido: 'Técnico reatribuído',
+  desatribuido: 'Técnico removido',
+  solicitacao_aceita: 'Solicitação aceita',
+  solicitacao_recusada: 'Solicitação recusada',
   a_caminho: 'Técnico a caminho',
   chegada: 'Chegada confirmada',
   finalizado: 'Finalizado pelo técnico',

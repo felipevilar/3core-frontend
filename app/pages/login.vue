@@ -7,6 +7,7 @@ definePageMeta({ layout: 'public' })
 useHead({ title: 'Entrar — 3CORE' })
 
 const { login } = useAuth()
+const { resolveLandingRoute } = usePermissions()
 const route = useRoute()
 
 const schema = z.object({
@@ -24,7 +25,7 @@ async function onSubmit(event: FormSubmitEvent<Schema>) {
   loading.value = true
   try {
     await login(event.data.email, event.data.password)
-    const redirect = typeof route.query.redirect === 'string' ? route.query.redirect : '/dashboard'
+    const redirect = typeof route.query.redirect === 'string' ? route.query.redirect : resolveLandingRoute()
     await navigateTo(redirect)
   } catch (e: unknown) {
     const err = e as { data?: { message?: string } }

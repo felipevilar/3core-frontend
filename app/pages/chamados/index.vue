@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import type { TableColumn } from '@nuxt/ui'
 import type {
   Chamado,
   ChamadoStatus,
@@ -22,6 +23,7 @@ const podeVerTecnicos = can('tecnicos.ver')
 type Opt<T> = { label: string, value: T }
 const statusOptions: Opt<ChamadoStatus>[] = [
   { label: 'Aberto', value: 'aberto' },
+  { label: 'Solicitado', value: 'solicitado' },
   { label: 'Atribuído', value: 'atribuido' },
   { label: 'A caminho', value: 'a_caminho' },
   { label: 'Em atendimento', value: 'em_atendimento' },
@@ -145,6 +147,21 @@ function dataHora(iso: string | null): string {
   if (!iso) return '—'
   return new Date(iso).toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })
 }
+
+// Colunas da tabela (desktop). Sem cabeçalhos ordenáveis de propósito: a
+// ordenação e a paginação são feitas no servidor (createdAt DESC), então
+// ordenar só a página visível enganaria o usuário. As células são renderizadas
+// via slots #<id>-cell no template, reaproveitando os helpers de exibição.
+const columns: TableColumn<Chamado>[] = [
+  { accessorKey: 'codigo', header: 'Chamado' },
+  { accessorKey: 'client', header: 'Cliente' },
+  { accessorKey: 'tecnicoNome', header: 'Técnico' },
+  { id: 'datas', header: 'Datas' },
+  ...(podeFin ? [{ id: 'custo', header: 'Custo técnico' } as TableColumn<Chamado>] : []),
+  { accessorKey: 'status', header: 'Status' },
+  { accessorKey: 'paymentStatus', header: 'Pagamento' },
+  { id: 'actions', header: '' }
+]
 </script>
 
 <template>
@@ -251,83 +268,210 @@ function dataHora(iso: string | null): string {
 
       <!-- Lista -->
       <UPageCard variant="subtle" :ui="{ container: 'p-0 sm:p-0 gap-y-0' }">
-        <div class="flex items-center justify-between gap-3 px-4 sm:px-6 py-2 border-b border-default bg-elevated/30 text-xs text-muted">
+        <div class="flex items-center justify-end gap-3 px-4 sm:px-6 py-2 border-b border-default bg-elevated/30 text-xs text-muted">
           <span>{{ rangeLabel }}</span>
-          <span>Custo técnico (nesta página): <span class="text-highlighted font-medium">{{ brl(totalCusto) }}</span></span>
         </div>
 
         <div v-if="pending" class="py-10 flex justify-center">
           <UIcon name="i-lucide-loader-circle" class="size-6 animate-spin text-muted" />
         </div>
 
-        <ul v-else role="list" class="divide-y divide-default">
-          <li
-            v-for="c in items"
-            :key="c.id"
-            class="flex items-center justify-between gap-3 py-3 px-4 sm:px-6 hover:bg-elevated/30 transition-colors"
+        <template v-else>
+          <!-- Desktop: tabela (mais densa e escaneável em telas largas) -->
+          <UTable
+            :data="items"
+            :columns="columns"
+            class="hidden lg:block"
+            :ui="{
+              base: 'min-w-full',
+              thead: '[&>tr]:bg-elevated/30',
+              th: 'py-2 text-xs font-medium text-muted uppercase tracking-wide',
+              td: 'py-3 align-top border-b border-default',
+              tr: 'hover:bg-elevated/30 transition-colors'
+            }"
           >
-            <div class="min-w-0">
-              <p class="text-highlighted font-medium truncate flex items-center gap-2">
-                <span class="text-muted text-xs font-mono">{{ c.codigo }}</span>
-                {{ c.titulo }}
-                <UBadge :color="prioridadeMeta(c.prioridade).color" variant="subtle" size="sm">
-                  {{ prioridadeMeta(c.prioridade).label }}
-                </UBadge>
-              </p>
-              <p class="text-muted text-sm truncate">
-                <UIcon name="i-lucide-building-2" class="size-3.5 inline-block -mt-0.5" />
-                {{ c.client?.nome ?? '—' }}
-                <span v-if="c.city"> • {{ c.city.nome }}/{{ c.city.uf }}</span>
-                <span v-if="c.tecnicoNome"> • <UIcon name="i-lucide-hard-hat" class="size-3.5 inline-block -mt-0.5" /> {{ c.tecnicoNome }}</span>
-              </p>
-              <p class="text-xs mt-0.5 flex flex-wrap items-center gap-x-3 gap-y-0.5">
-                <span class="text-brand-blue-light inline-flex items-center gap-1">
-                  <UIcon name="i-lucide-calendar-plus" class="size-3" /> Criado {{ dataHora(c.createdAt) }}
-                </span>
-                <span v-if="c.agendadoPara" class="text-brand-orange inline-flex items-center gap-1">
-                  <UIcon name="i-lucide-calendar-clock" class="size-3" /> Agendado {{ dataHora(c.agendadoPara) }}
-                </span>
-                <span v-if="c.finalizadoEm" class="text-green-500 inline-flex items-center gap-1">
-                  <UIcon name="i-lucide-calendar-check" class="size-3" /> Finalizado {{ dataHora(c.finalizadoEm) }}
-                </span>
-              </p>
-            </div>
-
-            <div class="flex items-center gap-3 shrink-0">
-              <div v-if="Number(c.custoTecnicoTotal) > 0" class="text-right hidden sm:block">
-                <p class="text-highlighted text-sm font-medium">
-                  {{ brl(c.custoTecnicoTotal) }}
+            <template #codigo-cell="{ row }">
+              <div class="min-w-0 max-w-xs">
+                <p class="text-highlighted font-medium truncate flex items-center gap-2">
+                  <span class="text-muted text-xs font-mono">{{ row.original.codigo }}</span>
+                  {{ row.original.titulo }}
                 </p>
-                <p class="text-dimmed text-[10px] uppercase tracking-wide">
-                  custo técnico
+                <UBadge
+                  :color="prioridadeMeta(row.original.prioridade).color"
+                  variant="subtle"
+                  size="sm"
+                  class="mt-1"
+                >
+                  {{ prioridadeMeta(row.original.prioridade).label }}
+                </UBadge>
+              </div>
+            </template>
+
+            <template #client-cell="{ row }">
+              <div class="min-w-0 max-w-56">
+                <p class="text-highlighted text-sm truncate">
+                  <UIcon name="i-lucide-building-2" class="size-3.5 inline-block -mt-0.5" />
+                  {{ row.original.client?.nome ?? '—' }}
+                </p>
+                <p v-if="row.original.city" class="text-muted text-xs truncate">
+                  {{ row.original.city.nome }}/{{ row.original.city.uf }}
                 </p>
               </div>
+            </template>
+
+            <template #tecnicoNome-cell="{ row }">
+              <span v-if="row.original.tecnicoNome" class="text-sm text-highlighted inline-flex items-center gap-1">
+                <UIcon name="i-lucide-hard-hat" class="size-3.5" /> {{ row.original.tecnicoNome }}
+              </span>
+              <span v-else class="text-dimmed text-sm">—</span>
+            </template>
+
+            <template #datas-cell="{ row }">
+              <div class="text-xs flex flex-col gap-0.5">
+                <span class="text-brand-blue-light inline-flex items-center gap-1">
+                  <UIcon name="i-lucide-calendar-plus" class="size-3" /> {{ dataHora(row.original.createdAt) }}
+                </span>
+                <span v-if="row.original.agendadoPara" class="text-brand-orange inline-flex items-center gap-1">
+                  <UIcon name="i-lucide-calendar-clock" class="size-3" /> {{ dataHora(row.original.agendadoPara) }}
+                </span>
+                <span v-if="row.original.finalizadoEm" class="text-green-500 inline-flex items-center gap-1">
+                  <UIcon name="i-lucide-calendar-check" class="size-3" /> {{ dataHora(row.original.finalizadoEm) }}
+                </span>
+              </div>
+            </template>
+
+            <template #custo-cell="{ row }">
+              <span v-if="Number(row.original.custoTecnicoTotal) > 0" class="text-highlighted text-sm font-medium">
+                {{ brl(row.original.custoTecnicoTotal) }}
+              </span>
+              <span v-else class="text-dimmed text-sm">—</span>
+            </template>
+
+            <template #status-cell="{ row }">
+              <div class="flex flex-col items-start gap-1">
+                <UBadge :color="statusMeta(row.original.status).color" variant="subtle">
+                  {{ statusMeta(row.original.status).label }}
+                </UBadge>
+              </div>
+            </template>
+
+            <template #paymentStatus-cell="{ row }">
               <UBadge
-                v-if="c.status === 'fechado' && c.paymentStatus !== 'nao_aplicavel'"
-                :color="paymentMeta(c.paymentStatus).color"
+                v-if="row.original.status === 'fechado' && row.original.paymentStatus !== 'nao_aplicavel'"
+                :color="paymentMeta(row.original.paymentStatus).color"
                 variant="subtle"
                 size="sm"
               >
-                {{ paymentMeta(c.paymentStatus).label }}
+                {{ paymentMeta(row.original.paymentStatus).label }}
               </UBadge>
-              <UBadge :color="statusMeta(c.status).color" variant="subtle">
-                {{ statusMeta(c.status).label }}
-              </UBadge>
+              <span v-else class="text-dimmed text-sm">—</span>
+            </template>
+
+            <template #actions-cell="{ row }">
               <UButton
                 label="Ver"
                 icon="i-lucide-eye"
-                color="neutral"
+                color="success"
                 variant="subtle"
                 size="sm"
-                :to="`/chamados/${c.id}`"
+                :to="`/chamados/${row.original.id}`"
               />
-            </div>
-          </li>
+            </template>
 
-          <li v-if="!items.length" class="py-10 text-center text-sm text-muted">
-            Nenhum chamado encontrado com os filtros atuais.
-          </li>
-        </ul>
+            <template #empty>
+              <span class="text-sm text-muted">Nenhum chamado encontrado com os filtros atuais.</span>
+            </template>
+          </UTable>
+
+          <!-- Mobile/tablet: cards (mantêm a flexibilidade de campos condicionais).
+               @container: o layout interno responde à LARGURA DO CARD, não do
+               viewport — o painel é mais estreito que a tela por causa da sidebar,
+               então usar breakpoints de viewport (sm:) estouraria a coluna de ações. -->
+          <ul role="list" class="divide-y divide-default lg:hidden @container">
+            <li
+              v-for="c in items"
+              :key="c.id"
+              class="flex flex-col gap-3 py-3 px-4 sm:px-6 hover:bg-elevated/30 transition-colors"
+            >
+              <div class="min-w-0">
+                <p class="text-highlighted font-medium truncate flex items-center gap-2">
+                  <span class="text-muted text-xs font-mono">{{ c.codigo }}</span>
+                  <UBadge :color="prioridadeMeta(c.prioridade).color" variant="subtle" size="sm">
+                    {{ prioridadeMeta(c.prioridade).label }}
+                  </UBadge>
+                </p>
+                <p class="text-highlighted text-md font-extrabold truncate my-1">
+                  {{ c.titulo }}
+                </p>
+                <p class="text-muted text-sm truncate flex items-center gap-1">
+                  <UIcon name="i-lucide-building-2" class="size-3.5 inline-block " />
+                  {{ c.client?.nome ?? '—' }}
+                </p>
+                <p class="text-muted text-sm truncate gap-1 flex items-center">
+                  <UIcon name="i-lucide-map-pin" class="size-3.5 inline-block" />
+                  <span v-if="c.city">{{ c.city.nome }}/{{ c.city.uf }}</span>
+                </p>
+                <p v-if="c.tecnicoNome" class="text-muted text-sm truncate gap-1 flex items-center">
+                  <UIcon name="i-lucide-hard-hat" class="size-3.5 inline-block" />
+                  <span>{{ c.tecnicoNome }}</span>
+                </p>
+                <hr class="my-2">
+                <p class="text-xs mt-0.5 flex flex-wrap items-center gap-x-3 gap-y-0.5">
+                  <span class="text-brand-blue-light inline-flex items-center gap-1">
+                    <UIcon name="i-lucide-calendar-plus" class="size-3" /> Criado {{ dataHora(c.createdAt) }}
+                  </span>
+                  <span v-if="c.agendadoPara" class="text-brand-orange inline-flex items-center gap-1">
+                    <UIcon name="i-lucide-calendar-clock" class="size-3" /> Agendado {{ dataHora(c.agendadoPara) }}
+                  </span>
+                  <span v-if="c.finalizadoEm" class="text-green-500 inline-flex items-center gap-1">
+                    <UIcon name="i-lucide-calendar-check" class="size-3" /> Finalizado {{ dataHora(c.finalizadoEm) }}
+                  </span>
+                </p>
+              </div>
+
+              <div class="flex flex-col items-stretch gap-2 shrink-0">
+                <div v-if="Number(c.custoTecnicoTotal) > 0" class="text-right hidden @sm:block">
+                  <p class="text-highlighted text-sm font-medium">
+                    {{ brl(c.custoTecnicoTotal) }}
+                  </p>
+                  <p class="text-dimmed text-[10px] uppercase tracking-wide">
+                    custo técnico
+                  </p>
+                </div>
+                <UBadge
+                  v-if="c.status === 'fechado' && c.paymentStatus !== 'nao_aplicavel'"
+                  :color="paymentMeta(c.paymentStatus).color"
+                  variant="subtle"
+                  class="justify-center py-2"
+                  icon="i-lucide-credit-card"
+                >
+                  {{ paymentMeta(c.paymentStatus).label }}
+                </UBadge>
+                <UBadge
+                  :color="statusMeta(c.status).color"
+                  icon="i-lucide-clipboard"
+                  variant="outline"
+                  class="justify-center py-2"
+                >
+                  {{ statusMeta(c.status).label }}
+                </UBadge>
+                <UButton
+                  label="Ver"
+                  icon="i-lucide-eye"
+                  color="success"
+                  variant="solid"
+                  size="sm"
+                  block
+                  :to="`/chamados/${c.id}`"
+                />
+              </div>
+            </li>
+
+            <li v-if="!items.length" class="py-10 text-center text-sm text-muted">
+              Nenhum chamado encontrado com os filtros atuais.
+            </li>
+          </ul>
+        </template>
 
         <!-- Paginação -->
         <div class="flex flex-col sm:flex-row items-center justify-between gap-3 px-4 sm:px-6 py-3 border-t border-default">

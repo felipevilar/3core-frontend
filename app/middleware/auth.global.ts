@@ -18,10 +18,12 @@ export default defineNuxtRouteMiddleware((to) => {
 
   const required = to.meta.permission as string | undefined
   if (required) {
-    const { can } = usePermissions()
+    const { can, resolveLandingRoute } = usePermissions()
     if (!can(required)) {
-      // Sem permissão para esta página → volta para o painel inicial.
-      return navigateTo('/dashboard')
+      // Sem permissão para esta página → primeira rota que o usuário pode acessar.
+      // (evita loop de redirecionamento quando não há acesso ao /dashboard).
+      const fallback = resolveLandingRoute()
+      return fallback === to.path ? undefined : navigateTo(fallback)
     }
   }
 })
