@@ -42,11 +42,56 @@ export function useAuth() {
     }
   }
 
+  async function updateProfile(bio: string) {
+    const updated = await $fetch<AuthUser>(`${apiBase}/auth/me`, {
+      method: 'PATCH',
+      headers: { Authorization: `Bearer ${token.value}` },
+      body: { bio }
+    })
+    user.value = updated
+    return updated
+  }
+
+  async function uploadAvatar(file: File) {
+    const { path, signedUrl } = await $fetch<{ path: string, signedUrl: string }>(
+      `${apiBase}/auth/me/avatar/upload-url`,
+      {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token.value}` },
+        body: { fileName: file.name }
+      }
+    )
+
+    await fetch(signedUrl, {
+      method: 'PUT',
+      body: file,
+      headers: { 'Content-Type': file.type || 'application/octet-stream' }
+    })
+
+    const updated = await $fetch<AuthUser>(`${apiBase}/auth/me/avatar`, {
+      method: 'PATCH',
+      headers: { Authorization: `Bearer ${token.value}` },
+      body: { storagePath: path }
+    })
+    user.value = updated
+    return updated
+  }
+
   function logout() {
     token.value = null
     user.value = null
     return navigateTo('/login')
   }
 
-  return { token, user, isAuthenticated, permissions, login, fetchMe, logout }
+  return {
+    token,
+    user,
+    isAuthenticated,
+    permissions,
+    login,
+    fetchMe,
+    logout,
+    updateProfile,
+    uploadAvatar
+  }
 }

@@ -15,7 +15,9 @@ const neutrals = ['slate', 'gray', 'zinc', 'neutral', 'stone']
 const user = computed(() => ({
   name: authUser.value?.name ?? 'Usuário',
   avatar: {
-    alt: authUser.value?.name ?? 'Usuário'
+    src: authUser.value?.avatarUrl ?? undefined,
+    alt: authUser.value?.name ?? 'Usuário',
+    size: 'lg' as const
   }
 }))
 
@@ -25,13 +27,7 @@ const items = computed<DropdownMenuItem[][]>(() => ([[{
   avatar: user.value.avatar
 }], [{
   label: 'Perfil',
-  icon: 'i-lucide-user'
-}, {
-  label: 'Faturamento',
-  icon: 'i-lucide-credit-card'
-}, {
-  label: 'Configurações',
-  icon: 'i-lucide-settings',
+  icon: 'i-lucide-user',
   to: '/settings'
 }], [{
   label: 'Tema',

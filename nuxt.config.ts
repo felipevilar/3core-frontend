@@ -1,7 +1,7 @@
 // https://nuxt.com/docs/api/configuration/nuxt-config
 export default defineNuxtConfig({
   modules: ['@nuxt/eslint', '@nuxt/ui', '@vueuse/nuxt'],
-  ssr: false,
+  ssr: process.env.NODE_ENV !== 'development',
   devtools: {
     enabled: true
   },
@@ -18,6 +18,9 @@ export default defineNuxtConfig({
     '/api/**': {
       cors: true
     }
+  },
+  devServer: {
+    port: process.env.PORT || 3000
   },
 
   compatibilityDate: '2024-07-11',

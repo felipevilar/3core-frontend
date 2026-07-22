@@ -33,6 +33,8 @@ export interface AuthUser {
   id: number
   email: string
   name: string
+  bio?: string | null
+  avatarUrl?: string | null
   isActive: boolean
   role: { id: number, name: string, description: string | null }
   permissions: string[]
@@ -62,6 +64,7 @@ export interface ManagedUser {
   email: string
   name: string
   isActive: boolean
+  avatarUrl: string | null
   role: Role
 }
 
@@ -107,6 +110,7 @@ export interface TechnicianListItem {
   name: string
   email: string
   isActive: boolean
+  avatarUrl: string | null
   celular: string
   cityCode: number | null
   cidadeNome: string | null
@@ -169,6 +173,7 @@ export interface TechnicianDetail {
     name: string
     email: string
     isActive: boolean
+    avatarUrl: string | null
   }
 }
 

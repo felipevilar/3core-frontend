@@ -19,6 +19,7 @@ type Schema = z.output<typeof schema>
 const state = reactive<Partial<Schema>>({ email: undefined, password: undefined })
 const loading = ref(false)
 const errorMsg = ref('')
+const showPassword = ref(false)
 
 async function onSubmit(event: FormSubmitEvent<Schema>) {
   errorMsg.value = ''
@@ -67,11 +68,14 @@ async function onSubmit(event: FormSubmitEvent<Schema>) {
         <UFormField label="Senha" name="password">
           <UInput
             v-model="state.password"
-            type="password"
+            :type="showPassword ? 'text' : 'password'"
             placeholder="••••••••"
             autocomplete="current-password"
             class="w-full"
           />
+          <div class="flex items-center gap-2 mt-2">
+            <UCheckbox v-model="showPassword" label="Mostrar senha" />
+          </div>
         </UFormField>
 
         <UAlert

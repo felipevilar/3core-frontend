@@ -181,7 +181,8 @@ onMounted(async () => {
       :ui="{ footer: 'lg:border-t lg:border-default' }"
     >
       <template #header="{ collapsed }">
-        <TeamsMenu :collapsed="collapsed" />
+        <UDashboardSidebarCollapse :side="collapsed ? 'right' : 'left'" />
+        <span v-if="!collapsed">3CORE Tecnologia</span>
       </template>
 
       <template #default="{ collapsed }">
