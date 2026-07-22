@@ -258,25 +258,27 @@ export interface ClientPayload {
 }
 
 // ---- Chamados / Financeiro ----
-export type ChamadoStatus =
-  | 'aberto'
-  | 'solicitado'
-  | 'atribuido'
-  | 'a_caminho'
-  | 'em_atendimento'
-  | 'finalizado'
-  | 'fechado'
-  | 'cancelado'
+export type ChamadoStatus
+  = | 'aberto'
+    | 'solicitado'
+    | 'atribuido'
+    | 'a_caminho'
+    | 'em_atendimento'
+    | 'finalizado'
+    | 'fechado'
+    | 'cancelado'
 
 export type ChamadoPrioridade = 'baixa' | 'media' | 'alta' | 'urgente'
 export type PaymentStatus = 'nao_aplicavel' | 'pendente' | 'aprovado' | 'pago'
+/** Recebimento do cliente (receita do chamado). */
+export type ClientePaymentStatus = 'pendente' | 'pago'
 export type LineItemNatureza = 'custo' | 'receita'
-export type LineItemTipo =
-  | 'chamada_fixa'
-  | 'mao_de_obra'
-  | 'deslocamento'
-  | 'extra'
-  | 'ajuste'
+export type LineItemTipo
+  = | 'chamada_fixa'
+    | 'mao_de_obra'
+    | 'deslocamento'
+    | 'extra'
+    | 'ajuste'
 
 export interface ChamadoLineItem {
   id: number
@@ -328,6 +330,8 @@ export interface Chamado {
   margem?: string
   financeiroObs?: string | null
   paymentStatus: PaymentStatus
+  clientePaymentStatus?: ClientePaymentStatus
+  clientePagoEm?: string | null
   paymentPeriodo: string | null
   aprovadoEm: string | null
   pagoEm: string | null
@@ -410,6 +414,42 @@ export interface Paginated<T> {
 export interface DateRangeYmd {
   de: string
   ate: string
+}
+
+/** Uma linha de atendimento no painel financeiro (GET /financeiro/overview). */
+export interface OverviewRow {
+  id: number
+  codigo: string
+  titulo: string
+  clientId: number
+  cliente: string | null
+  cidade: string | null
+  tecnicoUserId: number | null
+  tecnicoNome: string | null
+  finalizadoEm: string | null
+  paymentPeriodo: string | null
+  valorClienteTotal: string
+  custoTecnicoTotal: string
+  margem: string
+  paymentStatus: PaymentStatus
+  clientePaymentStatus: ClientePaymentStatus
+}
+
+/** GET /financeiro/overview — KPIs consolidados + atendimentos do período. */
+export interface FinanceiroOverview {
+  periodo: { de: string, ate: string }
+  kpis: {
+    faturamentoTotal: string
+    lucroBruto: string
+    pendenteReceber: string
+    pendentePagar: string
+    saldoRealizado: string
+    repasseTotal: string
+    recebido: string
+    pagoTecnicos: string
+    qtdChamados: number
+  }
+  rows: OverviewRow[]
 }
 
 /** Linha da folha de pagamento (GET /financeiro/payout). */
