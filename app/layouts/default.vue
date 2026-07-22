@@ -97,6 +97,10 @@ const links = computed<NavigationMenuItem[][]>(() => {
       label: 'Ferramental Técnico',
       to: '/landing-config/tools',
       onSelect: () => { open.value = false }
+    }, {
+      label: 'Alertas de Cadastro',
+      to: '/landing-config/alerts',
+      onSelect: () => { open.value = false }
     }]
   }, {
     label: 'Configurações',

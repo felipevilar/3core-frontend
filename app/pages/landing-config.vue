@@ -12,6 +12,10 @@ const links = [[{
   label: 'Ferramental Técnico',
   icon: 'i-lucide-wrench',
   to: '/landing-config/tools'
+}, {
+  label: 'Alertas de Cadastro',
+  icon: 'i-lucide-bell',
+  to: '/landing-config/alerts'
 }]] satisfies NavigationMenuItem[][]
 </script>
 
