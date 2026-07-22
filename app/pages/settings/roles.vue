@@ -15,14 +15,18 @@ const { data: permissionGroups } = await useAsyncData('permission-groups', () =>
   $api<PermissionGroup[]>('/permissions')
 )
 
+// Permissões que o super_admin não pode perder (piso espelhado no backend):
+// sem elas ninguém reconcede acesso pela UI. Ficam travadas marcadas.
+const SUPER_ADMIN_REQUIRED_KEYS = ['roles.ver', 'roles.gerenciar']
+
 // ---- Editor (criar/editar) ----
 const open = ref(false)
 const editingId = ref<number | null>(null)
-// `readOnly`: super_admin é totalmente imutável.
-// `lockName`: papéis de sistema (ex.: tecnico) têm o nome travado, mas as
-// permissões continuam editáveis.
-const readOnly = ref(false)
+// `lockName`: papéis de sistema (ex.: tecnico, super_admin) têm o nome travado,
+// mas as permissões continuam editáveis.
 const lockName = ref(false)
+// `lockedKeys`: permissões que não podem ser desmarcadas (super_admin).
+const lockedKeys = ref<Set<string>>(new Set())
 const form = reactive({
   name: '',
   description: '',
@@ -31,8 +35,8 @@ const form = reactive({
 
 function openCreate() {
   editingId.value = null
-  readOnly.value = false
   lockName.value = false
+  lockedKeys.value = new Set()
   form.name = ''
   form.description = ''
   form.permissionKeys = new Set()
@@ -41,8 +45,11 @@ function openCreate() {
 
 function openEdit(role: Role) {
   editingId.value = role.id
-  readOnly.value = role.name === 'super_admin'
   lockName.value = role.isSystem
+  // super_admin: mantém o piso de permissões travado marcado.
+  lockedKeys.value = role.name === 'super_admin'
+    ? new Set(SUPER_ADMIN_REQUIRED_KEYS)
+    : new Set()
   form.name = role.name
   form.description = role.description ?? ''
   form.permissionKeys = new Set(role.permissions.map(p => p.key))
@@ -50,6 +57,8 @@ function openEdit(role: Role) {
 }
 
 function togglePermission(key: string, checked: boolean | 'indeterminate') {
+  // Permissões travadas (piso do super_admin) não podem ser desmarcadas.
+  if (lockedKeys.value.has(key)) return
   if (checked === true) form.permissionKeys.add(key)
   else form.permissionKeys.delete(key)
   // força reatividade do Set
@@ -136,7 +145,7 @@ async function remove(role: Role) {
 
           <div class="flex items-center gap-2">
             <UButton
-              :label="role.name === 'super_admin' || !canManage ? 'Ver' : 'Editar'"
+              :label="canManage ? 'Editar' : 'Ver'"
               color="neutral"
               variant="subtle"
               size="sm"
@@ -158,20 +167,25 @@ async function remove(role: Role) {
     <UModal
       v-model:open="open"
       :title="editingId ? 'Editar papel' : 'Novo papel'"
-      :description="readOnly ? 'Papel de sistema (somente leitura)' : lockName ? 'Papel de sistema — nome fixo, permissões editáveis' : 'Defina o nome e as permissões deste papel'"
+      :description="!canManage ? 'Somente leitura' : lockName ? 'Papel de sistema — nome fixo, permissões editáveis' : 'Defina o nome e as permissões deste papel'"
     >
       <template #body>
         <div class="space-y-4">
           <UFormField label="Nome" name="name">
             <UInput
               v-model="form.name"
-              :disabled="readOnly || lockName"
+              :disabled="!canManage || lockName"
               class="w-full"
               placeholder="ex.: supervisor"
             />
           </UFormField>
           <UFormField label="Descrição" name="description">
-            <UInput v-model="form.description" :disabled="readOnly" class="w-full" placeholder="Opcional" />
+            <UInput
+              v-model="form.description"
+              :disabled="!canManage"
+              class="w-full"
+              placeholder="Opcional"
+            />
           </UFormField>
 
           <div>
@@ -189,7 +203,7 @@ async function remove(role: Role) {
                     :key="perm.key"
                     :model-value="form.permissionKeys.has(perm.key)"
                     :label="perm.label"
-                    :disabled="readOnly"
+                    :disabled="!canManage || lockedKeys.has(perm.key)"
                     @update:model-value="(v: boolean | 'indeterminate') => togglePermission(perm.key, v)"
                   />
                 </div>
@@ -198,9 +212,14 @@ async function remove(role: Role) {
           </div>
 
           <div class="flex justify-end gap-2">
-            <UButton label="Fechar" color="neutral" variant="subtle" @click="open = false" />
             <UButton
-              v-if="!readOnly && canManage"
+              label="Fechar"
+              color="neutral"
+              variant="subtle"
+              @click="() => { open = false }"
+            />
+            <UButton
+              v-if="canManage"
               label="Salvar"
               color="primary"
               @click="save"

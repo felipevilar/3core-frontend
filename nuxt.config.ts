@@ -19,6 +19,9 @@ export default defineNuxtConfig({
       cors: true
     }
   },
+  devServer: {
+    port: process.env.PORT || 3000
+  },
 
   compatibilityDate: '2024-07-11',
 
