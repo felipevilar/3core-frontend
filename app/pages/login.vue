@@ -41,6 +41,11 @@ async function onSubmit(event: FormSubmitEvent<Schema>) {
   <div class="min-h-screen flex items-center justify-center bg-muted/30 p-4">
     <UPageCard class="w-full max-w-sm">
       <div class="text-center mb-6">
+        <img
+          src="/logo.png"
+          alt="3CORE"
+          class="h-16 mx-auto mb-4"
+        >
         <h1 class="text-xl font-bold">
           Acessar o painel
         </h1>
