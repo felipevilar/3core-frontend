@@ -418,7 +418,7 @@ async function handleSubmit() {
       <div class="bg-brand-blue text-white shadow-lg" style="background-color: oklch(0.25 0.01 0);">
         <div class="max-w-2xl mx-auto px-4 py-5">
           <img
-            src="/logo2.png"
+            src="/logo.png"
             alt="3CORE"
             class="h-20 mb-5 mx-auto"
           >
