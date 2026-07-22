@@ -1,4 +1,4 @@
-import type { ChamadoStatus, ChamadoPrioridade, PaymentStatus } from '~/types'
+import type { ChamadoStatus, ChamadoPrioridade, PaymentStatus, ClientePaymentStatus } from '~/types'
 
 type BadgeColor = 'neutral' | 'primary' | 'success' | 'warning' | 'error' | 'info'
 
@@ -27,6 +27,12 @@ const PAYMENT_META: Record<PaymentStatus, { label: string, color: BadgeColor }> 
   pago: { label: 'Pago', color: 'success' }
 }
 
+/** Recebimento do cliente (receita). */
+const CLIENTE_PAYMENT_META: Record<ClientePaymentStatus, { label: string, color: BadgeColor }> = {
+  pendente: { label: 'A receber', color: 'warning' },
+  pago: { label: 'Recebido', color: 'success' }
+}
+
 const EVENT_LABEL: Record<string, string> = {
   criado: 'Chamado criado',
   atribuido: 'Técnico atribuído',
@@ -53,6 +59,7 @@ export function useChamadoDisplay() {
   const statusMeta = (s: ChamadoStatus) => STATUS_META[s] ?? { label: s, color: 'neutral' as BadgeColor }
   const prioridadeMeta = (p: ChamadoPrioridade) => PRIORIDADE_META[p] ?? { label: p, color: 'neutral' as BadgeColor }
   const paymentMeta = (p: PaymentStatus) => PAYMENT_META[p] ?? { label: p, color: 'neutral' as BadgeColor }
+  const clientePaymentMeta = (p: ClientePaymentStatus) => CLIENTE_PAYMENT_META[p] ?? { label: p, color: 'neutral' as BadgeColor }
   const eventLabel = (t: string) => EVENT_LABEL[t] ?? t
 
   function brl(value?: string | number | null): string {
@@ -60,5 +67,5 @@ export function useChamadoDisplay() {
     return n.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
   }
 
-  return { statusMeta, prioridadeMeta, paymentMeta, eventLabel, brl }
+  return { statusMeta, prioridadeMeta, paymentMeta, clientePaymentMeta, eventLabel, brl }
 }

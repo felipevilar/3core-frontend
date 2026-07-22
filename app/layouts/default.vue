@@ -10,6 +10,7 @@ const { count: solicitacoesCount, refresh: refreshSolicitacoes } = useSolicitaco
 onMounted(() => { refreshSolicitacoes() })
 
 const open = ref(false)
+const cookieConsent = useCookie('cookie-consent', { maxAge: 60 * 60 * 24 * 365 })
 
 // Item de menu com permissão opcional. Itens/grupos sem permissão são sempre visíveis;
 // com permissão, só aparecem se o usuário a possuir (children filtrados recursivamente).
@@ -145,8 +146,7 @@ const groups = computed(() => [{
 }])
 
 onMounted(async () => {
-  const cookie = useCookie('cookie-consent')
-  if (cookie.value === 'accepted') {
+  if (cookieConsent.value === 'accepted') {
     return
   }
 
@@ -159,7 +159,7 @@ onMounted(async () => {
       color: 'neutral',
       variant: 'outline',
       onClick: () => {
-        cookie.value = 'accepted'
+        cookieConsent.value = 'accepted'
       }
     }, {
       label: 'Recusar',
