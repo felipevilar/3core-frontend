@@ -210,7 +210,7 @@ async function copiarCelular(t: TechnicianListItem) {
             class="flex flex-col sm:flex-row items-center justify-between gap-3 py-3 px-4 sm:px-6 hover:bg-elevated/30 transition-colors"
           >
             <div class="flex items-center gap-3 min-w-0">
-              <UAvatar :alt="t.name" size="md" />
+              <UAvatar :src="t.avatarUrl ?? undefined" :alt="t.name" class="size-16 text-lg" />
               <div class="text-sm min-w-0">
                 <p class="text-highlighted font-medium truncate">
                   {{ t.name }}

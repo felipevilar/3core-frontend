@@ -1,158 +1,137 @@
 <script setup lang="ts">
-import * as z from 'zod'
-import type { FormSubmitEvent } from '@nuxt/ui'
+const { user, updateProfile, uploadAvatar } = useAuth()
+const toast = useToast()
 
 const fileRef = ref<HTMLInputElement>()
+const bio = ref(user.value?.bio ?? '')
+const savingBio = ref(false)
+const uploadingAvatar = ref(false)
 
-const profileSchema = z.object({
-  name: z.string().min(2, 'Muito curto'),
-  email: z.string().email('E-mail inválido'),
-  username: z.string().min(2, 'Muito curto'),
-  avatar: z.string().optional(),
-  bio: z.string().optional()
+watch(() => user.value?.bio, (val) => {
+  bio.value = val ?? ''
 })
 
-type ProfileSchema = z.output<typeof profileSchema>
-
-const profile = reactive<Partial<ProfileSchema>>({
-  name: 'Benjamin Canac',
-  email: 'ben@nuxtlabs.com',
-  username: 'benjamincanac',
-  avatar: undefined,
-  bio: undefined
-})
-const toast = useToast()
-async function onSubmit(event: FormSubmitEvent<ProfileSchema>) {
-  toast.add({
-    title: 'Sucesso',
-    description: 'Suas configurações foram atualizadas.',
-    icon: 'i-lucide-check',
-    color: 'success'
-  })
-  console.log(event.data)
-}
-
-function onFileChange(e: Event) {
-  const input = e.target as HTMLInputElement
-
-  if (!input.files?.length) {
-    return
+async function onSubmit() {
+  savingBio.value = true
+  try {
+    await updateProfile(bio.value)
+    toast.add({ title: 'Perfil atualizado', icon: 'i-lucide-check', color: 'success' })
+  } catch {
+    toast.add({ title: 'Erro ao salvar', icon: 'i-lucide-x', color: 'error' })
+  } finally {
+    savingBio.value = false
   }
-
-  profile.avatar = URL.createObjectURL(input.files[0]!)
 }
 
-function onFileClick() {
-  fileRef.value?.click()
+async function onFileChange(e: Event) {
+  const input = e.target as HTMLInputElement
+  if (!input.files?.length) return
+  const file = input.files[0]!
+  uploadingAvatar.value = true
+  try {
+    await uploadAvatar(file)
+    toast.add({ title: 'Avatar atualizado', icon: 'i-lucide-check', color: 'success' })
+  } catch {
+    toast.add({ title: 'Erro ao enviar avatar', icon: 'i-lucide-x', color: 'error' })
+  } finally {
+    uploadingAvatar.value = false
+    input.value = ''
+  }
 }
 </script>
 
 <template>
-  <UForm
-    id="settings"
-    :schema="profileSchema"
-    :state="profile"
-    @submit="onSubmit"
-  >
+  <div>
     <UPageCard
       title="Perfil"
-      description="Essas informações serão exibidas publicamente."
+      description="Gerencie as informações do seu perfil."
       variant="naked"
       orientation="horizontal"
       class="mb-4"
     >
       <UButton
-        form="settings"
         label="Salvar alterações"
         color="neutral"
-        type="submit"
+        :loading="savingBio"
         class="w-fit lg:ms-auto"
+        @click="onSubmit"
       />
     </UPageCard>
 
     <UPageCard variant="subtle">
       <UFormField
-        name="name"
         label="Nome"
-        description="Aparecerá em recibos, faturas e outras comunicações."
-        required
+        description="O nome não pode ser alterado por aqui."
         class="flex max-sm:flex-col justify-between items-start gap-4"
       >
-        <UInput
-          v-model="profile.name"
-          autocomplete="off"
-        />
+        <UInput :model-value="user?.name" disabled />
       </UFormField>
+
       <USeparator />
+
       <UFormField
-        name="email"
         label="E-mail"
-        description="Usado para entrar, receber recibos e atualizações do produto."
-        required
+        description="O e-mail não pode ser alterado por aqui."
         class="flex max-sm:flex-col justify-between items-start gap-4"
       >
-        <UInput
-          v-model="profile.email"
-          type="email"
-          autocomplete="off"
-        />
+        <UInput :model-value="user?.email" disabled type="email" />
       </UFormField>
+
       <USeparator />
+
       <UFormField
-        name="username"
-        label="Nome de usuário"
-        description="Seu nome de usuário único para login e URL do perfil."
-        required
+        label="Papel"
         class="flex max-sm:flex-col justify-between items-start gap-4"
       >
-        <UInput
-          v-model="profile.username"
-          type="username"
-          autocomplete="off"
-        />
+        <UBadge :label="user?.role?.name ?? '—'" variant="subtle" color="neutral" />
       </UFormField>
+
       <USeparator />
+
       <UFormField
-        name="avatar"
         label="Avatar"
-        description="JPG, GIF ou PNG. Máximo 1MB."
+        description="JPG ou PNG. Máximo 2MB."
         class="flex max-sm:flex-col justify-between sm:items-center gap-4"
       >
         <div class="flex flex-wrap items-center gap-3">
           <UAvatar
-            :src="profile.avatar"
-            :alt="profile.name"
-            size="lg"
+            :src="user?.avatarUrl ?? undefined"
+            :alt="user?.name"
+            class="size-20 text-2xl"
           />
           <UButton
-            label="Escolher"
+            label="Trocar avatar"
             color="neutral"
-            @click="onFileClick"
+            variant="outline"
+            :loading="uploadingAvatar"
+            @click="fileRef?.click()"
           />
           <input
             ref="fileRef"
             type="file"
             class="hidden"
-            accept=".jpg, .jpeg, .png, .gif"
+            accept="image/jpeg,image/png,image/webp"
             @change="onFileChange"
           >
         </div>
       </UFormField>
+
       <USeparator />
+
       <UFormField
-        name="bio"
         label="Bio"
-        description="Breve descrição para o seu perfil. URLs são convertidas em links."
+        description="Breve descrição sobre você (máximo 500 caracteres)."
         class="flex max-sm:flex-col justify-between items-start gap-4"
         :ui="{ container: 'w-full' }"
       >
         <UTextarea
-          v-model="profile.bio"
+          v-model="bio"
           :rows="5"
+          :maxlength="500"
           autoresize
           class="w-full"
         />
       </UFormField>
     </UPageCard>
-  </UForm>
+  </div>
 </template>

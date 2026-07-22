@@ -15,7 +15,9 @@ const neutrals = ['slate', 'gray', 'zinc', 'neutral', 'stone']
 const user = computed(() => ({
   name: authUser.value?.name ?? 'Usuário',
   avatar: {
-    alt: authUser.value?.name ?? 'Usuário'
+    src: authUser.value?.avatarUrl ?? undefined,
+    alt: authUser.value?.name ?? 'Usuário',
+    size: 'lg' as const
   }
 }))
 

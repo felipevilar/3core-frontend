@@ -133,16 +133,25 @@ async function excluir() {
       <template v-else-if="ficha">
         <!-- Cabeçalho do técnico -->
         <div class="flex items-center gap-4 mb-6">
-          <UAvatar :alt="ficha.user.name" size="xl" />
+          <UAvatar :src="ficha.user.avatarUrl ?? undefined" :alt="ficha.user.name" class="size-20 text-2xl" />
           <div>
             <h1 class="text-xl font-semibold text-highlighted flex items-center gap-2">
               {{ ficha.user.name }}
-              <UBadge v-if="!ficha.user.isActive" color="neutral" variant="subtle" size="sm">
+              <UBadge
+                v-if="!ficha.user.isActive"
+                color="neutral"
+                variant="subtle"
+                size="sm"
+              >
                 inativo
               </UBadge>
             </h1>
-            <p class="text-muted text-sm">{{ ficha.user.email }}</p>
-            <p class="text-muted text-sm">{{ ficha.celular }}</p>
+            <p class="text-muted text-sm">
+              {{ ficha.user.email }}
+            </p>
+            <p class="text-muted text-sm">
+              {{ ficha.celular }}
+            </p>
           </div>
         </div>
 
@@ -151,16 +160,28 @@ async function excluir() {
           <UPageCard title="Dados pessoais" variant="subtle">
             <dl class="space-y-3 text-sm">
               <div class="flex justify-between gap-3">
-                <dt class="text-muted">CPF</dt>
-                <dd class="text-highlighted text-right">{{ ficha.cpf || '—' }}</dd>
+                <dt class="text-muted">
+                  CPF
+                </dt>
+                <dd class="text-highlighted text-right">
+                  {{ ficha.cpf || '—' }}
+                </dd>
               </div>
               <div class="flex justify-between gap-3">
-                <dt class="text-muted">RG</dt>
-                <dd class="text-highlighted text-right">{{ ficha.rg || '—' }}</dd>
+                <dt class="text-muted">
+                  RG
+                </dt>
+                <dd class="text-highlighted text-right">
+                  {{ ficha.rg || '—' }}
+                </dd>
               </div>
               <div class="flex justify-between gap-3">
-                <dt class="text-muted">Celular</dt>
-                <dd class="text-highlighted text-right">{{ ficha.celular || '—' }}</dd>
+                <dt class="text-muted">
+                  Celular
+                </dt>
+                <dd class="text-highlighted text-right">
+                  {{ ficha.celular || '—' }}
+                </dd>
               </div>
             </dl>
           </UPageCard>
@@ -172,8 +193,12 @@ async function excluir() {
                 {{ enderecoCompleto(ficha) || '—' }}
               </p>
               <div v-if="ficha.enderecoEncomendas" class="mt-3 pt-3 border-t border-default">
-                <p class="text-muted text-xs mb-0.5">Endereço para encomendas</p>
-                <p class="text-highlighted">{{ ficha.enderecoEncomendas }}</p>
+                <p class="text-muted text-xs mb-0.5">
+                  Endereço para encomendas
+                </p>
+                <p class="text-highlighted">
+                  {{ ficha.enderecoEncomendas }}
+                </p>
               </div>
             </div>
           </UPageCard>
@@ -182,13 +207,17 @@ async function excluir() {
           <UPageCard title="Financeiro" variant="subtle">
             <dl class="space-y-3 text-sm">
               <div class="flex justify-between gap-3">
-                <dt class="text-muted">Pretensão (valor/hora)</dt>
+                <dt class="text-muted">
+                  Pretensão (valor/hora)
+                </dt>
                 <dd class="text-highlighted text-right">
                   {{ ficha.pretensaoValorHora ? `R$ ${ficha.pretensaoValorHora}` : '—' }}
                 </dd>
               </div>
               <div class="flex justify-between gap-3">
-                <dt class="text-muted">Custo por km</dt>
+                <dt class="text-muted">
+                  Custo por km
+                </dt>
                 <dd class="text-highlighted text-right">
                   {{ ficha.custoPorKm ? `R$ ${ficha.custoPorKm}` : '—' }}
                 </dd>
@@ -204,12 +233,20 @@ async function excluir() {
           >
             <div class="space-y-3 text-sm">
               <div v-if="ficha.pagamento?.pix">
-                <p class="text-muted text-xs mb-0.5">PIX</p>
-                <p class="text-highlighted">{{ ficha.pagamento.pix.chavePix }}</p>
-                <p class="text-dimmed text-xs">{{ ficha.pagamento.pix.nomeTitularPix }}</p>
+                <p class="text-muted text-xs mb-0.5">
+                  PIX
+                </p>
+                <p class="text-highlighted">
+                  {{ ficha.pagamento.pix.chavePix }}
+                </p>
+                <p class="text-dimmed text-xs">
+                  {{ ficha.pagamento.pix.nomeTitularPix }}
+                </p>
               </div>
               <div v-if="ficha.pagamento?.dadosBancarios" :class="{ 'pt-3 border-t border-default': ficha.pagamento.pix }">
-                <p class="text-muted text-xs mb-0.5">Dados bancários</p>
+                <p class="text-muted text-xs mb-0.5">
+                  Dados bancários
+                </p>
                 <p class="text-highlighted">
                   {{ ficha.pagamento.dadosBancarios.banco }} •
                   Ag. {{ ficha.pagamento.dadosBancarios.agencia }} •
@@ -226,16 +263,28 @@ async function excluir() {
           <UPageCard v-if="ficha.empresa" title="Empresa" variant="subtle">
             <dl class="space-y-3 text-sm">
               <div class="flex justify-between gap-3">
-                <dt class="text-muted">Nome fantasia</dt>
-                <dd class="text-highlighted text-right">{{ ficha.empresa.nomeFantasia || '—' }}</dd>
+                <dt class="text-muted">
+                  Nome fantasia
+                </dt>
+                <dd class="text-highlighted text-right">
+                  {{ ficha.empresa.nomeFantasia || '—' }}
+                </dd>
               </div>
               <div class="flex justify-between gap-3">
-                <dt class="text-muted">Razão social</dt>
-                <dd class="text-highlighted text-right">{{ ficha.empresa.razaoSocial || '—' }}</dd>
+                <dt class="text-muted">
+                  Razão social
+                </dt>
+                <dd class="text-highlighted text-right">
+                  {{ ficha.empresa.razaoSocial || '—' }}
+                </dd>
               </div>
               <div class="flex justify-between gap-3">
-                <dt class="text-muted">CNPJ</dt>
-                <dd class="text-highlighted text-right">{{ ficha.empresa.cnpj || '—' }}</dd>
+                <dt class="text-muted">
+                  CNPJ
+                </dt>
+                <dd class="text-highlighted text-right">
+                  {{ ficha.empresa.cnpj || '—' }}
+                </dd>
               </div>
             </dl>
           </UPageCard>
