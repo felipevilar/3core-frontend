@@ -421,6 +421,24 @@ export interface DateRangeYmd {
   ate: string
 }
 
+/** Item enxuto retornado por GET /chamados/agenda. */
+export interface AgendaItem {
+  id: number
+  codigo: string
+  titulo: string
+  status: ChamadoStatus
+  prioridade: ChamadoPrioridade
+  agendadoPara: string
+  clienteNome: string | null
+  tecnicoNome: string | null
+  tecnicoUserId: number | null
+  cidadeNome: string | null
+  uf: string | null
+  logradouro: string | null
+  numero: string | null
+  bairro: string | null
+}
+
 /** Uma linha de atendimento no painel financeiro (GET /financeiro/overview). */
 export interface OverviewRow {
   id: number

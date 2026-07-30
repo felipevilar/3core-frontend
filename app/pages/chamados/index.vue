@@ -17,7 +17,34 @@ const { statusMeta, prioridadeMeta, paymentMeta, brl } = useChamadoDisplay()
 const canCriar = can('atendimentos.criar')
 const podeFin = can('financeiro.ver')
 const podeGerenciar = can('atendimentos.gerenciar')
+const podeExcluir = can('atendimentos.excluir')
 const podeVerTecnicos = can('tecnicos.ver')
+
+const toast = useToast()
+const { confirm } = useConfirm()
+const excluindo = ref<number | null>(null)
+async function excluirChamado(c: Chamado) {
+  const ok = await confirm({
+    title: 'Excluir chamado?',
+    message: `O chamado "${c.codigo} — ${c.titulo}" e todos os seus dados (eventos, RATs, itens) serão removidos permanentemente. Esta ação não pode ser desfeita.`,
+    confirmLabel: 'Excluir',
+    confirmColor: 'error',
+    icon: 'i-lucide-trash-2'
+  })
+  if (!ok) return
+  excluindo.value = c.id
+  try {
+    await $api(`/chamados/${c.id}`, { method: 'DELETE' })
+    toast.add({ title: 'Chamado excluído', icon: 'i-lucide-trash-2', color: 'success' })
+    refresh()
+  } catch (e: unknown) {
+    const err = e as { data?: { message?: string | string[] } }
+    const msg = Array.isArray(err?.data?.message) ? err.data.message[0] : err?.data?.message
+    toast.add({ title: msg ?? 'Erro ao excluir', icon: 'i-lucide-alert-circle', color: 'error' })
+  } finally {
+    excluindo.value = null
+  }
+}
 
 // ---- Opções dos multi-selects ----
 type Opt<T> = { label: string, value: T }
@@ -368,14 +395,26 @@ const columns: TableColumn<Chamado>[] = [
             </template>
 
             <template #actions-cell="{ row }">
-              <UButton
-                label="Ver"
-                icon="i-lucide-eye"
-                color="success"
-                variant="subtle"
-                size="sm"
-                :to="`/chamados/${row.original.id}`"
-              />
+              <div class="flex items-center gap-1">
+                <UButton
+                  label="Ver"
+                  icon="i-lucide-eye"
+                  color="success"
+                  variant="subtle"
+                  size="sm"
+                  :to="`/chamados/${row.original.id}`"
+                />
+                <UButton
+                  v-if="podeExcluir"
+                  icon="i-lucide-trash-2"
+                  color="error"
+                  variant="ghost"
+                  size="sm"
+                  title="Excluir chamado"
+                  :loading="excluindo === row.original.id"
+                  @click="excluirChamado(row.original)"
+                />
+              </div>
             </template>
 
             <template #empty>
@@ -463,6 +502,17 @@ const columns: TableColumn<Chamado>[] = [
                   size="sm"
                   block
                   :to="`/chamados/${c.id}`"
+                />
+                <UButton
+                  v-if="podeExcluir"
+                  label="Excluir"
+                  icon="i-lucide-trash-2"
+                  color="error"
+                  variant="subtle"
+                  size="sm"
+                  block
+                  :loading="excluindo === c.id"
+                  @click="excluirChamado(c)"
                 />
               </div>
             </li>

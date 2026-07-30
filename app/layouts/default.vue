@@ -70,6 +70,12 @@ const links = computed<NavigationMenuItem[][]>(() => {
     permission: 'atendimentos.ver',
     onSelect: () => { open.value = false }
   }, solicitacoesItem.value, {
+    label: 'Agenda',
+    icon: 'i-lucide-calendar-days',
+    to: '/agenda',
+    permission: 'agenda.ver',
+    onSelect: () => { open.value = false }
+  }, {
     label: 'Financeiro',
     icon: 'i-lucide-wallet',
     to: '/financeiro',

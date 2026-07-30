@@ -158,9 +158,9 @@ const kpiCards = computed(() => {
 })
 
 // ---- Ações de pagamento (financeiro.gerenciar) ----
-const salvando = ref<number | null>(null)
-async function patchPagamento(row: OverviewRow, body: Record<string, unknown>, sucesso: string) {
-  salvando.value = row.id
+const salvando = ref<string | null>(null)
+async function patchPagamento(row: OverviewRow, body: Record<string, unknown>, sucesso: string, ciclo: 'cliente' | 'tecnico') {
+  salvando.value = `${row.id}-${ciclo}`
   try {
     await $api(`/chamados/${row.id}/pagamento`, { method: 'PATCH', body })
     toast.add({ title: sucesso, icon: 'i-lucide-check', color: 'success' })
@@ -174,13 +174,17 @@ async function patchPagamento(row: OverviewRow, body: Record<string, unknown>, s
   }
 }
 const marcarClienteRecebido = (r: OverviewRow) =>
-  patchPagamento(r, { clientePaymentStatus: 'pago' }, 'Recebimento do cliente registrado')
+  patchPagamento(r, { clientePaymentStatus: 'pago' }, 'Recebimento do cliente registrado', 'cliente')
 const marcarClientePendente = (r: OverviewRow) =>
-  patchPagamento(r, { clientePaymentStatus: 'pendente' }, 'Recebimento revertido')
+  patchPagamento(r, { clientePaymentStatus: 'pendente' }, 'Recebimento revertido', 'cliente')
 const aprovarTecnico = (r: OverviewRow) =>
-  patchPagamento(r, { paymentStatus: 'aprovado' }, 'Repasse aprovado')
+  patchPagamento(r, { paymentStatus: 'aprovado' }, 'Repasse aprovado', 'tecnico')
 const pagarTecnico = (r: OverviewRow) =>
-  patchPagamento(r, { paymentStatus: 'pago' }, 'Repasse marcado como pago')
+  patchPagamento(r, { paymentStatus: 'pago' }, 'Repasse marcado como pago', 'tecnico')
+const reverterAprovacaoTecnico = (r: OverviewRow) =>
+  patchPagamento(r, { paymentStatus: 'pendente' }, 'Aprovação revertida', 'tecnico')
+const estornarTecnico = (r: OverviewRow) =>
+  patchPagamento(r, { paymentStatus: 'aprovado' }, 'Pagamento estornado', 'tecnico')
 
 // ---- Formatação ----
 function dataCurta(iso: string | null): string {
@@ -523,67 +527,87 @@ const columns: TableColumn<OverviewRow>[] = [
             </template>
 
             <template #statusCliente-cell="{ row }">
-              <UBadge :color="clientePaymentMeta(row.original.clientePaymentStatus).color" variant="subtle" size="sm">
-                {{ clientePaymentMeta(row.original.clientePaymentStatus).label }}
-              </UBadge>
+              <div class="flex items-center gap-1.5">
+                <UBadge :color="clientePaymentMeta(row.original.clientePaymentStatus).color" variant="subtle" size="sm">
+                  {{ clientePaymentMeta(row.original.clientePaymentStatus).label }}
+                </UBadge>
+                <template v-if="podeGerenciar">
+                  <UButton
+                    v-if="row.original.clientePaymentStatus === 'pendente'"
+                    icon="i-lucide-check"
+                    size="xs"
+                    color="success"
+                    variant="ghost"
+                    title="Marcar recebido"
+                    :loading="salvando === `${row.original.id}-cliente`"
+                    @click="marcarClienteRecebido(row.original)"
+                  />
+                  <UButton
+                    v-else
+                    icon="i-lucide-rotate-ccw"
+                    size="xs"
+                    color="neutral"
+                    variant="ghost"
+                    title="Reverter recebimento"
+                    :loading="salvando === `${row.original.id}-cliente`"
+                    @click="marcarClientePendente(row.original)"
+                  />
+                </template>
+              </div>
             </template>
 
             <template #statusTecnico-cell="{ row }">
-              <UBadge :color="paymentMeta(row.original.paymentStatus).color" variant="subtle" size="sm">
-                {{ paymentMeta(row.original.paymentStatus).label }}
-              </UBadge>
+              <div class="flex items-center gap-1.5">
+                <UBadge :color="paymentMeta(row.original.paymentStatus).color" variant="subtle" size="sm">
+                  {{ paymentMeta(row.original.paymentStatus).label }}
+                </UBadge>
+                <template v-if="podeGerenciar">
+                  <UButton
+                    v-if="row.original.paymentStatus === 'pendente'"
+                    icon="i-lucide-check"
+                    size="xs"
+                    color="info"
+                    variant="ghost"
+                    title="Aprovar repasse"
+                    :loading="salvando === `${row.original.id}-tecnico`"
+                    @click="aprovarTecnico(row.original)"
+                  />
+                  <template v-else-if="row.original.paymentStatus === 'aprovado'">
+                    <UButton
+                      icon="i-lucide-banknote"
+                      size="xs"
+                      color="primary"
+                      variant="ghost"
+                      title="Pagar repasse"
+                      :loading="salvando === `${row.original.id}-tecnico`"
+                      @click="pagarTecnico(row.original)"
+                    />
+                    <UButton
+                      icon="i-lucide-rotate-ccw"
+                      size="xs"
+                      color="neutral"
+                      variant="ghost"
+                      title="Reverter aprovação"
+                      :loading="salvando === `${row.original.id}-tecnico`"
+                      @click="reverterAprovacaoTecnico(row.original)"
+                    />
+                  </template>
+                  <UButton
+                    v-else-if="row.original.paymentStatus === 'pago'"
+                    icon="i-lucide-rotate-ccw"
+                    size="xs"
+                    color="neutral"
+                    variant="ghost"
+                    title="Estornar pagamento"
+                    :loading="salvando === `${row.original.id}-tecnico`"
+                    @click="estornarTecnico(row.original)"
+                  />
+                </template>
+              </div>
             </template>
 
             <template #acoes-cell="{ row }">
-              <div v-if="podeGerenciar" class="flex items-center justify-end gap-1">
-                <UButton
-                  v-if="row.original.clientePaymentStatus === 'pendente'"
-                  label="Receber"
-                  icon="i-lucide-check"
-                  size="xs"
-                  color="success"
-                  variant="subtle"
-                  :loading="salvando === row.original.id"
-                  @click="marcarClienteRecebido(row.original)"
-                />
-                <UButton
-                  v-else
-                  icon="i-lucide-rotate-ccw"
-                  size="xs"
-                  color="neutral"
-                  variant="ghost"
-                  title="Reverter recebimento do cliente"
-                  :loading="salvando === row.original.id"
-                  @click="marcarClientePendente(row.original)"
-                />
-                <UButton
-                  v-if="row.original.paymentStatus === 'pendente'"
-                  label="Aprovar"
-                  size="xs"
-                  color="info"
-                  variant="subtle"
-                  :loading="salvando === row.original.id"
-                  @click="aprovarTecnico(row.original)"
-                />
-                <UButton
-                  v-else-if="row.original.paymentStatus === 'aprovado'"
-                  label="Pagar"
-                  size="xs"
-                  color="primary"
-                  variant="subtle"
-                  :loading="salvando === row.original.id"
-                  @click="pagarTecnico(row.original)"
-                />
-                <UButton
-                  icon="i-lucide-eye"
-                  size="xs"
-                  color="neutral"
-                  variant="ghost"
-                  :to="`/chamados/${row.original.id}`"
-                />
-              </div>
               <UButton
-                v-else
                 icon="i-lucide-eye"
                 size="xs"
                 color="neutral"
@@ -628,42 +652,78 @@ const columns: TableColumn<OverviewRow>[] = [
                 </div>
               </div>
               <div class="flex flex-wrap items-center gap-2">
-                <UBadge :color="clientePaymentMeta(r.clientePaymentStatus).color" variant="subtle" size="sm">
-                  Cliente: {{ clientePaymentMeta(r.clientePaymentStatus).label }}
-                </UBadge>
-                <UBadge :color="paymentMeta(r.paymentStatus).color" variant="subtle" size="sm">
-                  Técnico: {{ paymentMeta(r.paymentStatus).label }}
-                </UBadge>
-              </div>
-              <div v-if="podeGerenciar" class="flex flex-wrap gap-2">
-                <UButton
-                  v-if="r.clientePaymentStatus === 'pendente'"
-                  label="Marcar recebido"
-                  icon="i-lucide-check"
-                  size="xs"
-                  color="success"
-                  variant="subtle"
-                  :loading="salvando === r.id"
-                  @click="marcarClienteRecebido(r)"
-                />
-                <UButton
-                  v-if="r.paymentStatus === 'pendente'"
-                  label="Aprovar repasse"
-                  size="xs"
-                  color="info"
-                  variant="subtle"
-                  :loading="salvando === r.id"
-                  @click="aprovarTecnico(r)"
-                />
-                <UButton
-                  v-else-if="r.paymentStatus === 'aprovado'"
-                  label="Pagar repasse"
-                  size="xs"
-                  color="primary"
-                  variant="subtle"
-                  :loading="salvando === r.id"
-                  @click="pagarTecnico(r)"
-                />
+                <div class="flex items-center gap-1">
+                  <UBadge :color="clientePaymentMeta(r.clientePaymentStatus).color" variant="subtle" size="sm">
+                    Cliente: {{ clientePaymentMeta(r.clientePaymentStatus).label }}
+                  </UBadge>
+                  <template v-if="podeGerenciar">
+                    <UButton
+                      v-if="r.clientePaymentStatus === 'pendente'"
+                      label="Receber"
+                      icon="i-lucide-check"
+                      size="xs"
+                      color="success"
+                      variant="subtle"
+                      :loading="salvando === `${r.id}-cliente`"
+                      @click="marcarClienteRecebido(r)"
+                    />
+                    <UButton
+                      v-else
+                      icon="i-lucide-rotate-ccw"
+                      size="xs"
+                      color="neutral"
+                      variant="ghost"
+                      title="Reverter recebimento"
+                      :loading="salvando === `${r.id}-cliente`"
+                      @click="marcarClientePendente(r)"
+                    />
+                  </template>
+                </div>
+                <div class="flex items-center gap-1">
+                  <UBadge :color="paymentMeta(r.paymentStatus).color" variant="subtle" size="sm">
+                    Técnico: {{ paymentMeta(r.paymentStatus).label }}
+                  </UBadge>
+                  <template v-if="podeGerenciar">
+                    <UButton
+                      v-if="r.paymentStatus === 'pendente'"
+                      label="Aprovar"
+                      size="xs"
+                      color="info"
+                      variant="subtle"
+                      :loading="salvando === `${r.id}-tecnico`"
+                      @click="aprovarTecnico(r)"
+                    />
+                    <template v-else-if="r.paymentStatus === 'aprovado'">
+                      <UButton
+                        label="Pagar"
+                        size="xs"
+                        color="primary"
+                        variant="subtle"
+                        :loading="salvando === `${r.id}-tecnico`"
+                        @click="pagarTecnico(r)"
+                      />
+                      <UButton
+                        icon="i-lucide-rotate-ccw"
+                        size="xs"
+                        color="neutral"
+                        variant="ghost"
+                        title="Reverter aprovação"
+                        :loading="salvando === `${r.id}-tecnico`"
+                        @click="reverterAprovacaoTecnico(r)"
+                      />
+                    </template>
+                    <UButton
+                      v-else-if="r.paymentStatus === 'pago'"
+                      icon="i-lucide-rotate-ccw"
+                      size="xs"
+                      color="neutral"
+                      variant="ghost"
+                      title="Estornar pagamento"
+                      :loading="salvando === `${r.id}-tecnico`"
+                      @click="estornarTecnico(r)"
+                    />
+                  </template>
+                </div>
               </div>
             </li>
             <li v-if="!filtered.length" class="py-10 text-center text-sm text-muted">
