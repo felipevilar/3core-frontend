@@ -9,6 +9,7 @@ const LANDING_ROUTES: { path: string, permission: string | null }[] = [
   { path: '/technicians', permission: 'tecnicos.ver' },
   { path: '/clientes', permission: 'clientes.ver' },
   { path: '/chamados', permission: 'atendimentos.ver' },
+  { path: '/agenda', permission: 'agenda.ver' },
   { path: '/chamados/solicitacoes', permission: 'atendimentos.ver_solicitacoes' },
   { path: '/financeiro', permission: 'financeiro.ver' },
   { path: '/financeiro/meus-ganhos', permission: 'financeiro.ver_proprio' },
