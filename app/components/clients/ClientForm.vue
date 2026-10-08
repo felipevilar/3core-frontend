@@ -21,6 +21,7 @@ const tipoItems = [
 interface FormState {
   tipo: ClientType
   ativo: boolean
+  emiteNotaFiscal: boolean
   nome: string
   nomeFantasia: string
   cnpj: string
@@ -39,6 +40,7 @@ interface FormState {
 const state = reactive<FormState>({
   tipo: props.initial?.tipo ?? 'pj',
   ativo: props.initial?.ativo ?? true,
+  emiteNotaFiscal: props.initial?.emiteNotaFiscal ?? true,
   nome: props.initial?.nome ?? '',
   nomeFantasia: props.initial?.nomeFantasia ?? '',
   cnpj: props.initial?.cnpj ?? '',
@@ -90,7 +92,8 @@ function onSubmit() {
     bairro: clean(state.bairro),
     cityCode: cityCode.value,
     observacoes: clean(state.observacoes),
-    ativo: state.ativo
+    ativo: state.ativo,
+    emiteNotaFiscal: state.emiteNotaFiscal
   }
   // e-mail vazio: omite do corpo para não bater no @IsEmail.
   if (!payload.email) delete payload.email
@@ -107,7 +110,14 @@ function onSubmit() {
         :items="tipoItems"
         orientation="horizontal"
       />
-      <USwitch v-model="state.ativo" label="Cliente ativo" class="ms-auto" />
+      <div class="ms-auto flex flex-wrap items-center gap-4">
+        <USwitch
+          v-model="state.emiteNotaFiscal"
+          label="Emite nota fiscal"
+          description="Chamados deste cliente terão imposto sobre a receita"
+        />
+        <USwitch v-model="state.ativo" label="Cliente ativo" />
+      </div>
     </div>
 
     <!-- Identificação -->

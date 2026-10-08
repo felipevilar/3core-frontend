@@ -67,5 +67,11 @@ export function useChamadoDisplay() {
     return n.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
   }
 
-  return { statusMeta, prioridadeMeta, paymentMeta, clientePaymentMeta, eventLabel, brl }
+  // Percentual em pt-BR: "11.50" -> "11,5%".
+  function pct(value?: string | number | null): string {
+    const n = Number(value ?? 0)
+    return `${n.toLocaleString('pt-BR', { maximumFractionDigits: 2 })}%`
+  }
+
+  return { statusMeta, prioridadeMeta, paymentMeta, clientePaymentMeta, eventLabel, brl, pct }
 }

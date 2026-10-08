@@ -238,6 +238,8 @@ export interface Client {
   city: City | null
   observacoes: string | null
   ativo: boolean
+  /** Padrão de nota fiscal nos chamados do cliente (com nota há imposto). */
+  emiteNotaFiscal: boolean
   createdAt: string
   updatedAt: string
 }
@@ -260,6 +262,7 @@ export interface ClientPayload {
   cityCode?: number | null
   observacoes?: string | null
   ativo?: boolean
+  emiteNotaFiscal?: boolean
 }
 
 // ---- Chamados / Financeiro ----
@@ -332,6 +335,13 @@ export interface Chamado {
   kmDeslocamento: string | null
   custoTecnicoTotal: string
   valorClienteTotal?: string
+  /** Imposto da nota (só com financeiro.ver). Alíquotas em % ("11.50"). */
+  emiteNota?: boolean
+  aliquotaImposto?: string
+  /** Alíquota própria do chamado; null = segue a vigente da empresa. */
+  aliquotaImpostoManual?: string | null
+  impostoTotal?: string
+  /** Receita − imposto − custo do técnico. */
   margem?: string
   financeiroObs?: string | null
   paymentStatus: PaymentStatus
@@ -452,10 +462,20 @@ export interface OverviewRow {
   finalizadoEm: string | null
   paymentPeriodo: string | null
   valorClienteTotal: string
+  emiteNota: boolean
+  aliquotaImposto: string
+  impostoTotal: string
   custoTecnicoTotal: string
+  /** Receita − imposto − custo do técnico. */
   margem: string
   paymentStatus: PaymentStatus
   clientePaymentStatus: ClientePaymentStatus
+}
+
+/** GET /financeiro/config — alíquota de imposto vigente da empresa (%). */
+export interface FinanceiroConfig {
+  aliquotaImposto: string
+  updatedAt: string | null
 }
 
 /** GET /financeiro/overview — KPIs consolidados + atendimentos do período. */
@@ -463,6 +483,7 @@ export interface FinanceiroOverview {
   periodo: { de: string, ate: string }
   kpis: {
     faturamentoTotal: string
+    impostoTotal: string
     lucroBruto: string
     pendenteReceber: string
     pendentePagar: string
