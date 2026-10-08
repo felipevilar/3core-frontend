@@ -3,6 +3,7 @@ import type {
   Chamado,
   ChamadoEvent,
   ChamadoRat,
+  FinanceiroConfig,
   Paginated,
   TechnicianListItem,
   UpdateChamadoPayload
@@ -15,7 +16,7 @@ const { $api } = useNuxtApp()
 const { can } = usePermissions()
 const { user } = useAuth()
 const toast = useToast()
-const { statusMeta, prioridadeMeta, paymentMeta, eventLabel, brl }
+const { statusMeta, prioridadeMeta, paymentMeta, eventLabel, brl, pct }
   = useChamadoDisplay()
 
 const id = Number(route.params.id)
@@ -40,6 +41,8 @@ const { data: rats, refresh: refreshRats } = await useAsyncData(
 
 // É o técnico dono do chamado?
 const isDono = computed(() => chamado.value?.tecnicoUserId === user.value?.id)
+// Ações do técnico: o próprio dono ou o gestor agindo em nome dele.
+const podeAgirComoTecnico = computed(() => isDono.value || podeGerenciar)
 
 async function reloadAll() {
   await Promise.all([refresh(), refreshEventos(), refreshRats()])
@@ -396,6 +399,73 @@ const marcarPago = () =>
     'Marcado como pago'
   )
 
+// ---- Imposto da nota fiscal ----
+const impostoOpen = ref(false)
+const salvandoImposto = ref(false)
+const aliquotaVigente = ref<string | null>(null)
+const impostoForm = reactive({
+  emiteNota: true,
+  modo: 'vigente' as 'vigente' | 'manual',
+  aliquota: undefined as number | undefined
+})
+const aliquotaValida = computed(
+  () =>
+    impostoForm.aliquota !== undefined
+    && impostoForm.aliquota >= 0
+    && impostoForm.aliquota <= 100
+)
+const modoAliquotaItems = computed(() => [
+  {
+    label: `Alíquota vigente da empresa${aliquotaVigente.value !== null ? ` (${pct(aliquotaVigente.value)})` : ''}`,
+    value: 'vigente'
+  },
+  { label: 'Alíquota própria deste chamado', value: 'manual' }
+])
+// Origem da alíquota exibida no card.
+const origemAliquota = computed(() => {
+  const c = chamado.value
+  if (!c) return ''
+  if (c.valoresCongeladosEm) return 'congelada no fechamento'
+  return c.aliquotaImpostoManual != null ? 'própria do chamado' : 'vigente da empresa'
+})
+
+async function abrirImposto() {
+  const c = chamado.value
+  if (!c) return
+  impostoForm.emiteNota = c.emiteNota ?? false
+  impostoForm.modo = c.aliquotaImpostoManual != null ? 'manual' : 'vigente'
+  impostoForm.aliquota = Number(c.aliquotaImpostoManual ?? c.aliquotaImposto ?? 0)
+  impostoOpen.value = true
+  try {
+    const cfg = await $api<FinanceiroConfig>('/financeiro/config')
+    aliquotaVigente.value = cfg.aliquotaImposto
+  } catch {
+    aliquotaVigente.value = null
+  }
+}
+
+async function salvarImposto() {
+  const manual = impostoForm.emiteNota && impostoForm.modo === 'manual'
+  if (manual && !aliquotaValida.value) return
+  salvandoImposto.value = true
+  try {
+    await acao(
+      () =>
+        $api(`/chamados/${id}/imposto`, {
+          method: 'PATCH',
+          // Sem nota, a alíquota própria é mantida (vale se voltar a emitir).
+          body: impostoForm.emiteNota
+            ? { emiteNota: true, aliquotaImpostoManual: manual ? impostoForm.aliquota : null }
+            : { emiteNota: false }
+        }),
+      'Imposto atualizado'
+    )
+    impostoOpen.value = false
+  } finally {
+    salvandoImposto.value = false
+  }
+}
+
 const custoItems = computed(() =>
   (chamado.value?.lineItems ?? []).filter(i => i.natureza === 'custo')
 )
@@ -598,9 +668,9 @@ async function removerRat(ratId: number, fileName: string) {
               variant="subtle"
               @click="abrirEditar"
             />
-            <!-- Técnico (dono): aceite da solicitação -->
+            <!-- Técnico (dono) ou gestor em nome dele: aceite da solicitação -->
             <UButton
-              v-if="isDono && chamado.status === 'solicitado'"
+              v-if="podeAgirComoTecnico && chamado.status === 'solicitado'"
               label="Aceitar"
               icon="i-lucide-check"
               size="sm"
@@ -608,7 +678,7 @@ async function removerRat(ratId: number, fileName: string) {
               @click="aceitar"
             />
             <UButton
-              v-if="isDono && chamado.status === 'solicitado'"
+              v-if="podeAgirComoTecnico && chamado.status === 'solicitado'"
               label="Recusar"
               icon="i-lucide-x"
               size="sm"
@@ -616,9 +686,9 @@ async function removerRat(ratId: number, fileName: string) {
               variant="subtle"
               @click="abrirMotivo('recusar')"
             />
-            <!-- Técnico (dono) -->
+            <!-- Técnico (dono) ou gestor em nome dele -->
             <UButton
-              v-if="isDono && chamado.status === 'atribuido'"
+              v-if="podeAgirComoTecnico && chamado.status === 'atribuido'"
               label="A caminho"
               icon="i-lucide-navigation"
               size="sm"
@@ -628,7 +698,7 @@ async function removerRat(ratId: number, fileName: string) {
             />
             <UButton
               v-if="
-                isDono && ['atribuido', 'a_caminho'].includes(chamado.status)
+                podeAgirComoTecnico && ['atribuido', 'a_caminho'].includes(chamado.status)
               "
               label="Confirmar chegada"
               icon="i-lucide-map-pin"
@@ -638,7 +708,7 @@ async function removerRat(ratId: number, fileName: string) {
               @click="confirmarChegada"
             />
             <UButton
-              v-if="isDono && chamado.status === 'em_atendimento'"
+              v-if="podeAgirComoTecnico && chamado.status === 'em_atendimento'"
               label="Finalizar"
               icon="i-lucide-check-check"
               size="sm"
@@ -820,7 +890,8 @@ async function removerRat(ratId: number, fileName: string) {
                       </template>
                       <template v-if="podeFin">
                         • Receita: {{ brl(chamado.valorClienteTotal) }} •
-                        Margem: {{ brl(chamado.margem) }}
+                        Imposto: {{ brl(chamado.impostoTotal) }} •
+                        Lucro: {{ brl(chamado.margem) }}
                       </template>
                     </p>
                   </div>
@@ -935,6 +1006,64 @@ async function removerRat(ratId: number, fileName: string) {
                       Sem receita lançada.
                     </li>
                   </ul>
+                </div>
+
+                <!-- Imposto da nota fiscal + resultado do chamado -->
+                <div v-if="podeFin" class="border-t border-default pt-3 space-y-2">
+                  <div class="flex items-center justify-between gap-2">
+                    <p class="text-xs font-semibold uppercase text-muted">
+                      Imposto (nota fiscal)
+                    </p>
+                    <UButton
+                      v-if="podeFinGerenciar && !chamado.valoresCongeladosEm"
+                      label="Ajustar"
+                      icon="i-lucide-percent"
+                      size="xs"
+                      variant="ghost"
+                      @click="abrirImposto"
+                    />
+                  </div>
+                  <p class="text-sm">
+                    <template v-if="chamado.emiteNota">
+                      <span class="text-highlighted">Com nota • alíquota {{ pct(chamado.aliquotaImposto) }}</span>
+                      <span class="text-muted text-xs"> ({{ origemAliquota }})</span>
+                    </template>
+                    <span v-else class="text-muted">Sem nota fiscal — sem imposto.</span>
+                  </p>
+                  <dl class="text-sm space-y-1">
+                    <div class="flex justify-between gap-2">
+                      <dt class="text-muted">
+                        Receita bruta
+                      </dt>
+                      <dd class="text-highlighted">
+                        {{ brl(chamado.valorClienteTotal) }}
+                      </dd>
+                    </div>
+                    <div class="flex justify-between gap-2">
+                      <dt class="text-muted">
+                        − Imposto
+                      </dt>
+                      <dd class="text-error">
+                        {{ brl(chamado.impostoTotal) }}
+                      </dd>
+                    </div>
+                    <div class="flex justify-between gap-2">
+                      <dt class="text-muted">
+                        − Custo do técnico
+                      </dt>
+                      <dd class="text-error">
+                        {{ brl(chamado.custoTecnicoTotal) }}
+                      </dd>
+                    </div>
+                    <div class="flex justify-between gap-2 border-t border-default pt-1 font-semibold">
+                      <dt class="text-highlighted">
+                        = Lucro
+                      </dt>
+                      <dd class="text-primary">
+                        {{ brl(chamado.margem) }}
+                      </dd>
+                    </div>
+                  </dl>
                 </div>
 
                 <!-- Pagamento -->
@@ -1326,6 +1455,54 @@ async function removerRat(ratId: number, fileName: string) {
             :color="MOTIVO_META[motivoAcao].color"
             :disabled="motivoTexto.trim().length < 3"
             @click="confirmarMotivo"
+          />
+        </div>
+      </div>
+    </template>
+  </UModal>
+
+  <!-- Modal: imposto da nota fiscal -->
+  <UModal v-model:open="impostoOpen" title="Imposto da nota fiscal">
+    <template #body>
+      <div class="space-y-4">
+        <USwitch
+          v-model="impostoForm.emiteNota"
+          label="Emite nota fiscal"
+          description="Sem nota, não há imposto sobre a receita deste chamado."
+        />
+        <template v-if="impostoForm.emiteNota">
+          <URadioGroup v-model="impostoForm.modo" :items="modoAliquotaItems" />
+          <UFormField
+            v-if="impostoForm.modo === 'manual'"
+            label="Alíquota (%)"
+            :error="aliquotaValida ? undefined : 'Informe um valor entre 0 e 100'"
+          >
+            <UInput
+              v-model.number="impostoForm.aliquota"
+              type="number"
+              min="0"
+              max="100"
+              step="0.01"
+              class="w-full"
+            />
+          </UFormField>
+        </template>
+        <p class="text-xs text-muted">
+          O imposto é calculado sobre a receita bruta e congelado quando o
+          chamado é fechado.
+        </p>
+        <div class="flex justify-end gap-2">
+          <UButton
+            label="Cancelar"
+            color="neutral"
+            variant="subtle"
+            @click="impostoOpen = false"
+          />
+          <UButton
+            label="Salvar"
+            :disabled="impostoForm.emiteNota && impostoForm.modo === 'manual' && !aliquotaValida"
+            :loading="salvandoImposto"
+            @click="salvarImposto"
           />
         </div>
       </div>

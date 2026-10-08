@@ -127,6 +127,12 @@ async function confirmRemove() {
                 <dt class="text-muted">{{ cliente.tipo === 'pj' ? 'CNPJ' : 'CPF' }}</dt>
                 <dd class="text-highlighted text-right">{{ documento(cliente) }}</dd>
               </div>
+              <div class="flex justify-between gap-3">
+                <dt class="text-muted">Nota fiscal</dt>
+                <dd class="text-highlighted text-right">
+                  {{ cliente.emiteNotaFiscal ? 'Emite (com imposto)' : 'Não emite' }}
+                </dd>
+              </div>
             </dl>
           </UPageCard>
 

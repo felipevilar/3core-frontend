@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import type { TableColumn } from '@nuxt/ui'
 import type {
+  FinanceiroConfig,
   FinanceiroOverview,
   OverviewRow,
   ClientePaymentStatus,
@@ -10,7 +11,7 @@ import type {
 definePageMeta({ permission: 'financeiro.ver' })
 
 const { $api } = useNuxtApp()
-const { paymentMeta, clientePaymentMeta, brl } = useChamadoDisplay()
+const { paymentMeta, clientePaymentMeta, brl, pct } = useChamadoDisplay()
 const { can } = usePermissions()
 const toast = useToast()
 
@@ -41,6 +42,41 @@ const { data, pending, refresh } = await useAsyncData(
 )
 
 const kpis = computed(() => data.value?.kpis)
+
+// ---- Alíquota de imposto vigente (nota fiscal) ----
+const { data: config, refresh: refreshConfig } = await useAsyncData(
+  'financeiro-config',
+  () => $api<FinanceiroConfig>('/financeiro/config')
+)
+const aliquotaOpen = ref(false)
+const aliquotaNova = ref<number | undefined>()
+const salvandoAliquota = ref(false)
+const aliquotaNovaValida = computed(
+  () => aliquotaNova.value !== undefined && aliquotaNova.value >= 0 && aliquotaNova.value <= 100
+)
+function abrirAliquota() {
+  aliquotaNova.value = Number(config.value?.aliquotaImposto ?? 0)
+  aliquotaOpen.value = true
+}
+async function salvarAliquota() {
+  if (!aliquotaNovaValida.value) return
+  salvandoAliquota.value = true
+  try {
+    await $api('/financeiro/config', {
+      method: 'PATCH',
+      body: { aliquotaImposto: aliquotaNova.value }
+    })
+    toast.add({ title: 'Alíquota atualizada', icon: 'i-lucide-check', color: 'success' })
+    aliquotaOpen.value = false
+    await Promise.all([refreshConfig(), refresh()])
+  } catch (e: unknown) {
+    const err = e as { data?: { message?: string | string[] } }
+    const msg = Array.isArray(err?.data?.message) ? err.data.message[0] : err?.data?.message
+    toast.add({ title: msg ?? 'Erro ao atualizar', icon: 'i-lucide-alert-circle', color: 'error' })
+  } finally {
+    salvandoAliquota.value = false
+  }
+}
 const rows = computed<OverviewRow[]>(() => data.value?.rows ?? [])
 
 // ---- Filtros rápidos na tabela (client-side sobre o período carregado) ----
@@ -100,12 +136,14 @@ function filtroTecnicoPg(r: OverviewRow): boolean {
 // Totais da seleção visível (reagem aos filtros rápidos).
 const totaisFiltrados = computed(() => {
   let fat = 0
+  let imposto = 0
   let repasse = 0
   for (const r of filtered.value) {
     fat += Number(r.valorClienteTotal)
+    imposto += Number(r.impostoTotal)
     repasse += Number(r.custoTecnicoTotal)
   }
-  return { fat, repasse, margem: fat - repasse, qtd: filtered.value.length }
+  return { fat, imposto, repasse, margem: fat - imposto - repasse, qtd: filtered.value.length }
 })
 
 function limparFiltros() {
@@ -127,8 +165,15 @@ const kpiCards = computed(() => {
       color: 'text-highlighted'
     },
     {
+      label: 'Impostos',
+      hint: 'Imposto das notas fiscais, abatido do faturamento',
+      value: k?.impostoTotal,
+      icon: 'i-lucide-receipt-text',
+      color: 'text-error'
+    },
+    {
       label: 'Lucro Bruto',
-      hint: 'Faturamento menos repasses aos técnicos',
+      hint: 'Faturamento menos impostos e repasses aos técnicos',
       value: k?.lucroBruto,
       icon: 'i-lucide-trending-up',
       color: 'text-primary'
@@ -222,6 +267,7 @@ function exportarGeral() {
     'Cidade',
     'Técnico',
     'Valor Total',
+    'Imposto',
     'Valor do Técnico',
     'Margem',
     'Status Cliente',
@@ -236,6 +282,7 @@ function exportarGeral() {
     r.cidade ?? '',
     r.tecnicoNome ?? '',
     numeroBr(r.valorClienteTotal),
+    numeroBr(r.impostoTotal),
     numeroBr(r.custoTecnicoTotal),
     numeroBr(r.margem),
     clientePaymentMeta(r.clientePaymentStatus).label,
@@ -251,6 +298,7 @@ function exportarGeral() {
     '',
     '',
     numeroBr(totaisFiltrados.value.fat),
+    numeroBr(totaisFiltrados.value.imposto),
     numeroBr(totaisFiltrados.value.repasse),
     numeroBr(totaisFiltrados.value.margem),
     '',
@@ -382,6 +430,15 @@ const columns: TableColumn<OverviewRow>[] = [
         class="mb-4"
       >
         <div class="flex items-center gap-2 lg:ms-auto">
+          <UButton
+            :label="`Imposto: ${pct(config?.aliquotaImposto)}`"
+            icon="i-lucide-percent"
+            color="neutral"
+            variant="subtle"
+            :title="podeGerenciar ? 'Alterar alíquota vigente' : 'Alíquota vigente da nota fiscal'"
+            :disabled="!podeGerenciar"
+            @click="abrirAliquota"
+          />
           <DateRangePicker
             v-model="periodo"
             label=""
@@ -399,7 +456,7 @@ const columns: TableColumn<OverviewRow>[] = [
       </UPageCard>
 
       <!-- KPIs -->
-      <div class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-5 gap-4 mb-4">
+      <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-6 gap-4 mb-4">
         <UPageCard v-for="c in kpiCards" :key="c.label" variant="subtle">
           <div class="flex items-start justify-between gap-2">
             <div class="min-w-0">
@@ -462,6 +519,8 @@ const columns: TableColumn<OverviewRow>[] = [
             <span class="text-dimmed">•</span>
             <span>Faturamento <strong class="text-highlighted">{{ brl(totaisFiltrados.fat) }}</strong></span>
             <span class="text-dimmed">•</span>
+            <span>Impostos <strong class="text-highlighted">{{ brl(totaisFiltrados.imposto) }}</strong></span>
+            <span class="text-dimmed">•</span>
             <span>Repasse <strong class="text-highlighted">{{ brl(totaisFiltrados.repasse) }}</strong></span>
             <span class="text-dimmed">•</span>
             <span>Margem <strong class="text-primary">{{ brl(totaisFiltrados.margem) }}</strong></span>
@@ -512,7 +571,19 @@ const columns: TableColumn<OverviewRow>[] = [
             </template>
 
             <template #valorTotal-cell="{ row }">
-              <span class="text-sm text-highlighted font-medium">{{ brl(row.original.valorClienteTotal) }}</span>
+              <div class="text-sm">
+                <p class="text-highlighted font-medium">
+                  {{ brl(row.original.valorClienteTotal) }}
+                </p>
+                <p class="text-dimmed text-xs">
+                  <template v-if="row.original.emiteNota">
+                    imposto {{ brl(row.original.impostoTotal) }} ({{ pct(row.original.aliquotaImposto) }})
+                  </template>
+                  <template v-else>
+                    sem nota
+                  </template>
+                </p>
+              </div>
             </template>
 
             <template #valorTecnico-cell="{ row }">
@@ -643,6 +714,9 @@ const columns: TableColumn<OverviewRow>[] = [
                   <p class="text-highlighted font-semibold">
                     {{ brl(r.valorClienteTotal) }}
                   </p>
+                  <p v-if="r.emiteNota" class="text-dimmed text-xs">
+                    imp. {{ brl(r.impostoTotal) }}
+                  </p>
                   <p class="text-dimmed text-xs">
                     téc. {{ brl(r.custoTecnicoTotal) }}
                   </p>
@@ -734,6 +808,50 @@ const columns: TableColumn<OverviewRow>[] = [
       </UPageCard>
     </template>
   </UDashboardPanel>
+
+  <!-- Modal: alíquota vigente. Fora do UDashboardPanel pelo mesmo motivo do
+       modal de fechamento abaixo. -->
+  <UModal v-model:open="aliquotaOpen" title="Alíquota de imposto vigente">
+    <template #body>
+      <div class="space-y-4">
+        <p class="text-sm text-muted">
+          Percentual descontado da receita bruta dos chamados que emitem nota
+          fiscal. A mudança vale para todos os chamados ainda não fechados que
+          seguem a alíquota da empresa; os fechados mantêm a alíquota da época.
+        </p>
+        <UFormField
+          label="Alíquota (%)"
+          :error="aliquotaNovaValida ? undefined : 'Informe um valor entre 0 e 100'"
+        >
+          <UInput
+            v-model.number="aliquotaNova"
+            type="number"
+            min="0"
+            max="100"
+            step="0.01"
+            class="w-full"
+          />
+        </UFormField>
+      </div>
+    </template>
+    <template #footer>
+      <div class="flex justify-end gap-2 w-full">
+        <UButton
+          label="Cancelar"
+          color="neutral"
+          variant="ghost"
+          @click="aliquotaOpen = false"
+        />
+        <UButton
+          label="Salvar"
+          icon="i-lucide-check"
+          :disabled="!aliquotaNovaValida"
+          :loading="salvandoAliquota"
+          @click="salvarAliquota"
+        />
+      </div>
+    </template>
+  </UModal>
 
   <!-- Modal: fechamento por técnico. Fica FORA do UDashboardPanel: como filho
        direto ele cairia no slot default do painel e ocultaria header/body. -->
