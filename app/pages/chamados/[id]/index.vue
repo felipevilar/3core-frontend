@@ -36,6 +36,7 @@ const podeGerenciar = can('atendimentos.gerenciar')
 const podeVerHistorico = can('atendimentos.ver_historico')
 const podeFin = can('financeiro.ver')
 const podeFinGerenciar = can('financeiro.gerenciar')
+const podeFinProprio = can('financeiro.ver_proprio')
 
 const {
   data: chamado,
@@ -53,6 +54,7 @@ const { data: rats, refresh: refreshRats } = await useAsyncData(
 
 // É o técnico dono do chamado?
 const isDono = computed(() => chamado.value?.tecnicoUserId === user.value?.id)
+const podeVerComprovantes = computed(() => podeFin || (isDono.value && podeFinProprio))
 // Ações do técnico: o próprio dono ou o gestor agindo em nome dele.
 const podeAgirComoTecnico = computed(() => isDono.value || podeGerenciar)
 
@@ -1952,6 +1954,15 @@ async function removerRat(ratId: number, fileName: string) {
                     />
                   </div>
                 </div>
+
+                <!-- Comprovantes do repasse (gestor financeiro ou o próprio técnico) -->
+                <ChamadosComprovantesPagamento
+                  v-if="chamado.status === 'fechado' && podeVerComprovantes"
+                  :chamado-id="chamado.id"
+                  :pode-gerenciar="podeFinGerenciar"
+                  class="border-t border-default pt-3"
+                  @changed="refreshEventos"
+                />
               </div>
             </UPageCard>
 

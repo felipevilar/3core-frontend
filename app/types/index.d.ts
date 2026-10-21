@@ -625,6 +625,17 @@ export interface ChamadoRat {
   createdAt: string
 }
 
+/** Comprovante do repasse ao técnico (GET /chamados/:id/comprovantes). */
+export interface ChamadoComprovante {
+  id: number
+  storagePath: string
+  fileName: string
+  mimeType: string | null
+  sizeBytes: number | null
+  observacoes: string | null
+  createdAt: string
+}
+
 export interface CreateChamadoPayload {
   clientId: number
   /** Opcional quando há `servicoId` (herda o nome do serviço). */
@@ -783,6 +794,16 @@ export interface OverviewRow {
   margem: string
   paymentStatus: PaymentStatus
   clientePaymentStatus: ClientePaymentStatus
+  /** PIX/dados bancários do técnico (ficha), para copiar na hora do repasse. */
+  tecnicoPagamento: PagamentoInfo | null
+  /** Quantidade de comprovantes de pagamento anexados. */
+  comprovantes: number
+}
+
+/** PATCH /financeiro/pagamentos/lote — resultado por chamado. */
+export interface PagamentoLoteResult {
+  ok: number[]
+  erros: { id: number, motivo: string }[]
 }
 
 /** GET /financeiro/config — alíquota de imposto vigente da empresa (%). */
