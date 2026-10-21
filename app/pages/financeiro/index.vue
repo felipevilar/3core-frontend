@@ -4,6 +4,7 @@ import type {
   FinanceiroConfig,
   FinanceiroOverview,
   OverviewRow,
+  PagamentoLoteResult,
   ClientePaymentStatus,
   DateRangeYmd
 } from '~/types'
@@ -204,16 +205,18 @@ const kpiCards = computed(() => {
 
 // ---- Ações de pagamento (financeiro.gerenciar) ----
 const salvando = ref<string | null>(null)
-async function patchPagamento(row: OverviewRow, body: Record<string, unknown>, sucesso: string, ciclo: 'cliente' | 'tecnico') {
+async function patchPagamento(row: OverviewRow, body: Record<string, unknown>, sucesso: string, ciclo: 'cliente' | 'tecnico'): Promise<boolean> {
   salvando.value = `${row.id}-${ciclo}`
   try {
     await $api(`/chamados/${row.id}/pagamento`, { method: 'PATCH', body })
     toast.add({ title: sucesso, icon: 'i-lucide-check', color: 'success' })
     await refresh()
+    return true
   } catch (e: unknown) {
     const err = e as { data?: { message?: string | string[] } }
     const msg = Array.isArray(err?.data?.message) ? err.data.message[0] : err?.data?.message
     toast.add({ title: msg ?? 'Erro ao atualizar', icon: 'i-lucide-alert-circle', color: 'error' })
+    return false
   } finally {
     salvando.value = null
   }
@@ -224,12 +227,128 @@ const marcarClientePendente = (r: OverviewRow) =>
   patchPagamento(r, { clientePaymentStatus: 'pendente' }, 'Recebimento revertido', 'cliente')
 const aprovarTecnico = (r: OverviewRow) =>
   patchPagamento(r, { paymentStatus: 'aprovado' }, 'Repasse aprovado', 'tecnico')
-const pagarTecnico = (r: OverviewRow) =>
-  patchPagamento(r, { paymentStatus: 'pago' }, 'Repasse marcado como pago', 'tecnico')
+// Depois de marcar como pago, já abre os comprovantes para anexar o recibo.
+async function pagarTecnico(r: OverviewRow) {
+  const ok = await patchPagamento(r, { paymentStatus: 'pago' }, 'Repasse marcado como pago', 'tecnico')
+  if (ok) abrirComprovantes(r, true)
+}
 const reverterAprovacaoTecnico = (r: OverviewRow) =>
   patchPagamento(r, { paymentStatus: 'pendente' }, 'Aprovação revertida', 'tecnico')
 const estornarTecnico = (r: OverviewRow) =>
   patchPagamento(r, { paymentStatus: 'aprovado' }, 'Pagamento estornado', 'tecnico')
+
+// ---- Seleção múltipla p/ aprovação/pagamento em massa ----
+const selecionados = ref(new Set<number>())
+const selecionadosRows = computed(() =>
+  rows.value.filter(r => selecionados.value.has(r.id))
+)
+const selPendentes = computed(() => selecionadosRows.value.filter(r => r.paymentStatus === 'pendente'))
+const selAprovados = computed(() => selecionadosRows.value.filter(r => r.paymentStatus === 'aprovado'))
+const todosVisiveisSelecionados = computed(
+  () => filtered.value.length > 0 && filtered.value.every(r => selecionados.value.has(r.id))
+)
+const algumVisivelSelecionado = computed(() => filtered.value.some(r => selecionados.value.has(r.id)))
+function toggleSel(id: number, on?: boolean) {
+  const next = new Set(selecionados.value)
+  const ligar = on ?? !next.has(id)
+  if (ligar) next.add(id)
+  else next.delete(id)
+  selecionados.value = next
+}
+function toggleTodosVisiveis(on: boolean) {
+  const next = new Set(selecionados.value)
+  for (const r of filtered.value) {
+    if (on) next.add(r.id)
+    else next.delete(r.id)
+  }
+  selecionados.value = next
+}
+function limparSelecao() {
+  selecionados.value = new Set()
+}
+// Ao recarregar, descarta ids que saíram do período.
+watch(rows, (lista) => {
+  const ids = new Set(lista.map(r => r.id))
+  const next = new Set([...selecionados.value].filter(id => ids.has(id)))
+  if (next.size !== selecionados.value.size) selecionados.value = next
+})
+
+const salvandoLote = ref(false)
+async function loteTecnico(paymentStatus: 'aprovado' | 'pago') {
+  const alvo = paymentStatus === 'aprovado' ? selPendentes.value : selAprovados.value
+  if (!alvo.length) return
+  salvandoLote.value = true
+  try {
+    const res = await $api<PagamentoLoteResult>('/financeiro/pagamentos/lote', {
+      method: 'PATCH',
+      body: { ids: alvo.map(r => r.id), paymentStatus }
+    })
+    const verbo = paymentStatus === 'aprovado' ? 'aprovado(s)' : 'marcado(s) como pago(s)'
+    if (res.erros.length) {
+      toast.add({
+        title: `${res.ok.length} repasse(s) ${verbo}, ${res.erros.length} com erro`,
+        description: res.erros.map(e => `#${e.id}: ${e.motivo}`).slice(0, 3).join(' · '),
+        icon: 'i-lucide-alert-triangle',
+        color: 'warning'
+      })
+    } else {
+      toast.add({ title: `${res.ok.length} repasse(s) ${verbo}`, icon: 'i-lucide-check', color: 'success' })
+    }
+    await refresh()
+    // Mantém selecionados só os que falharam, para o gestor revisar.
+    selecionados.value = new Set(res.erros.map(e => e.id))
+  } catch (e: unknown) {
+    const err = e as { data?: { message?: string | string[] } }
+    const msg = Array.isArray(err?.data?.message) ? err.data.message[0] : err?.data?.message
+    toast.add({ title: msg ?? 'Erro na ação em massa', icon: 'i-lucide-alert-circle', color: 'error' })
+  } finally {
+    salvandoLote.value = false
+  }
+}
+
+// ---- Cópia rápida de PIX / dados bancários do técnico ----
+function textoPagamento(r: OverviewRow): { label: string, texto: string } | null {
+  const p = r.tecnicoPagamento
+  if (p?.pix?.chavePix) {
+    return { label: `PIX ${p.pix.chavePix}`, texto: p.pix.chavePix }
+  }
+  const b = p?.dadosBancarios
+  if (b?.banco || b?.conta) {
+    const texto = [
+      `Banco: ${b.banco}`,
+      `Agência: ${b.agencia}`,
+      `Conta: ${b.conta}${b.tipoConta ? ` (${b.tipoConta})` : ''}`,
+      r.tecnicoNome ? `Favorecido: ${r.tecnicoNome}` : ''
+    ].filter(Boolean).join('\n')
+    return { label: `Conta ${b.banco} ${b.agencia}/${b.conta}`, texto }
+  }
+  return null
+}
+async function copiarPagamento(r: OverviewRow) {
+  const info = textoPagamento(r)
+  if (!info) return
+  try {
+    await navigator.clipboard.writeText(info.texto)
+    toast.add({
+      title: r.tecnicoPagamento?.pix?.chavePix ? 'Chave PIX copiada' : 'Dados bancários copiados',
+      description: info.label,
+      icon: 'i-lucide-clipboard-check',
+      color: 'success'
+    })
+  } catch {
+    toast.add({ title: 'Não foi possível copiar', icon: 'i-lucide-alert-circle', color: 'error' })
+  }
+}
+
+// ---- Comprovantes de pagamento (modal) ----
+const compOpen = ref(false)
+const compRow = ref<OverviewRow | null>(null)
+const compRecemPago = ref(false)
+function abrirComprovantes(r: OverviewRow, recemPago = false) {
+  compRow.value = r
+  compRecemPago.value = recemPago
+  compOpen.value = true
+}
 
 // ---- Formatação ----
 function dataCurta(iso: string | null): string {
@@ -378,6 +497,7 @@ function exportarFechamento() {
 
 // ---- Colunas da tabela (desktop) ----
 const columns: TableColumn<OverviewRow>[] = [
+  ...(podeGerenciar ? [{ id: 'select', header: '' } as TableColumn<OverviewRow>] : []),
   { id: 'data', header: 'Data' },
   { accessorKey: 'codigo', header: 'Chamado' },
   { accessorKey: 'cliente', header: 'Cliente' },
@@ -525,6 +645,45 @@ const columns: TableColumn<OverviewRow>[] = [
             <span class="text-dimmed">•</span>
             <span>Margem <strong class="text-primary">{{ brl(totaisFiltrados.margem) }}</strong></span>
           </div>
+          <!-- Barra de ações em massa (aparece com seleção) -->
+          <div
+            v-if="podeGerenciar && selecionados.size"
+            class="flex flex-wrap items-center gap-2 rounded-md bg-elevated/60 px-3 py-2 text-sm"
+          >
+            <span class="text-highlighted font-medium">{{ selecionados.size }} selecionado(s)</span>
+            <span class="text-dimmed">•</span>
+            <span class="text-muted">
+              repasse {{ brl(selecionadosRows.reduce((a, r) => a + Number(r.custoTecnicoTotal), 0)) }}
+            </span>
+            <div class="flex items-center gap-2 ms-auto">
+              <UButton
+                :label="`Aprovar ${selPendentes.length} pendente(s)`"
+                icon="i-lucide-check-check"
+                size="xs"
+                color="info"
+                :disabled="!selPendentes.length"
+                :loading="salvandoLote"
+                @click="loteTecnico('aprovado')"
+              />
+              <UButton
+                :label="`Marcar ${selAprovados.length} como pago(s)`"
+                icon="i-lucide-banknote"
+                size="xs"
+                color="primary"
+                :disabled="!selAprovados.length"
+                :loading="salvandoLote"
+                @click="loteTecnico('pago')"
+              />
+              <UButton
+                label="Limpar"
+                icon="i-lucide-x"
+                size="xs"
+                color="neutral"
+                variant="ghost"
+                @click="limparSelecao"
+              />
+            </div>
+          </div>
         </div>
 
         <div v-if="pending" class="py-10 flex justify-center">
@@ -545,6 +704,21 @@ const columns: TableColumn<OverviewRow>[] = [
               tr: 'hover:bg-elevated/30 transition-colors'
             }"
           >
+            <template #select-header>
+              <UCheckbox
+                :model-value="todosVisiveisSelecionados ? true : (algumVisivelSelecionado ? 'indeterminate' : false)"
+                aria-label="Selecionar todos os visíveis"
+                @update:model-value="(v: boolean | 'indeterminate') => toggleTodosVisiveis(v === true)"
+              />
+            </template>
+            <template #select-cell="{ row }">
+              <UCheckbox
+                :model-value="selecionados.has(row.original.id)"
+                aria-label="Selecionar atendimento"
+                @update:model-value="(v: boolean | 'indeterminate') => toggleSel(row.original.id, v === true)"
+              />
+            </template>
+
             <template #data-cell="{ row }">
               <span class="text-sm text-highlighted whitespace-nowrap">{{ dataCurta(row.original.finalizadoEm) }}</span>
             </template>
@@ -566,6 +740,15 @@ const columns: TableColumn<OverviewRow>[] = [
             <template #tecnicoNome-cell="{ row }">
               <span v-if="row.original.tecnicoNome" class="text-sm text-highlighted inline-flex items-center gap-1">
                 <UIcon name="i-lucide-hard-hat" class="size-3.5" /> {{ row.original.tecnicoNome }}
+                <UButton
+                  v-if="textoPagamento(row.original)"
+                  icon="i-lucide-copy"
+                  size="xs"
+                  color="neutral"
+                  variant="ghost"
+                  :title="`Copiar ${textoPagamento(row.original)?.label}`"
+                  @click="copiarPagamento(row.original)"
+                />
               </span>
               <span v-else class="text-dimmed text-sm">—</span>
             </template>
@@ -674,6 +857,22 @@ const columns: TableColumn<OverviewRow>[] = [
                     @click="estornarTecnico(row.original)"
                   />
                 </template>
+                <UChip
+                  v-if="row.original.paymentStatus === 'pago' || row.original.comprovantes > 0"
+                  :text="row.original.comprovantes"
+                  :show="row.original.comprovantes > 0"
+                  size="sm"
+                  color="success"
+                >
+                  <UButton
+                    icon="i-lucide-receipt"
+                    size="xs"
+                    :color="row.original.comprovantes > 0 ? 'success' : 'neutral'"
+                    variant="ghost"
+                    :title="row.original.comprovantes > 0 ? `${row.original.comprovantes} comprovante(s)` : 'Anexar comprovante de pagamento'"
+                    @click="abrirComprovantes(row.original)"
+                  />
+                </UChip>
               </div>
             </template>
 
@@ -700,7 +899,14 @@ const columns: TableColumn<OverviewRow>[] = [
               class="flex flex-col gap-2 py-3 px-4 sm:px-6"
             >
               <div class="flex items-start justify-between gap-2">
-                <NuxtLink :to="`/chamados/${r.id}`" class="min-w-0">
+                <UCheckbox
+                  v-if="podeGerenciar"
+                  :model-value="selecionados.has(r.id)"
+                  class="mt-1"
+                  aria-label="Selecionar atendimento"
+                  @update:model-value="(v: boolean | 'indeterminate') => toggleSel(r.id, v === true)"
+                />
+                <NuxtLink :to="`/chamados/${r.id}`" class="min-w-0 flex-1">
                   <p class="text-highlighted font-medium truncate">
                     <span class="text-muted text-xs font-mono">{{ r.codigo }}</span>
                     {{ r.titulo }}
@@ -710,6 +916,15 @@ const columns: TableColumn<OverviewRow>[] = [
                     <UIcon name="i-lucide-hard-hat" class="size-3" /> {{ r.tecnicoNome }}
                   </p>
                 </NuxtLink>
+                <UButton
+                  v-if="textoPagamento(r)"
+                  icon="i-lucide-copy"
+                  size="xs"
+                  color="neutral"
+                  variant="ghost"
+                  :title="`Copiar ${textoPagamento(r)?.label}`"
+                  @click="copiarPagamento(r)"
+                />
                 <div class="text-right shrink-0">
                   <p class="text-highlighted font-semibold">
                     {{ brl(r.valorClienteTotal) }}
@@ -797,6 +1012,16 @@ const columns: TableColumn<OverviewRow>[] = [
                       @click="estornarTecnico(r)"
                     />
                   </template>
+                  <UButton
+                    v-if="r.paymentStatus === 'pago' || r.comprovantes > 0"
+                    :label="r.comprovantes > 0 ? `${r.comprovantes}` : undefined"
+                    icon="i-lucide-receipt"
+                    size="xs"
+                    :color="r.comprovantes > 0 ? 'success' : 'neutral'"
+                    variant="ghost"
+                    title="Comprovantes de pagamento"
+                    @click="abrirComprovantes(r)"
+                  />
                 </div>
               </div>
             </li>
@@ -808,6 +1033,36 @@ const columns: TableColumn<OverviewRow>[] = [
       </UPageCard>
     </template>
   </UDashboardPanel>
+
+  <!-- Modal: comprovantes do repasse. Fora do UDashboardPanel (ver abaixo). -->
+  <UModal
+    v-model:open="compOpen"
+    :title="compRow ? `Comprovantes — ${compRow.codigo}` : 'Comprovantes'"
+    :description="compRow ? `${compRow.tecnicoNome ?? 'Técnico'} • repasse ${brl(compRow.custoTecnicoTotal)}` : undefined"
+  >
+    <template #body>
+      <div v-if="compRow" class="space-y-4">
+        <UAlert
+          v-if="compRecemPago"
+          icon="i-lucide-info"
+          color="info"
+          variant="subtle"
+          title="Repasse marcado como pago"
+          description="Anexe agora o comprovante da transferência para deixar o fechamento documentado. Você pode fazer isso depois pelo ícone de recibo na linha."
+        />
+        <ChamadosComprovantesPagamento
+          :chamado-id="compRow.id"
+          :pode-gerenciar="podeGerenciar"
+          @changed="() => refresh()"
+        />
+      </div>
+    </template>
+    <template #footer>
+      <div class="flex justify-end w-full">
+        <UButton label="Fechar" color="neutral" variant="ghost" @click="compOpen = false" />
+      </div>
+    </template>
+  </UModal>
 
   <!-- Modal: alíquota vigente. Fora do UDashboardPanel pelo mesmo motivo do
        modal de fechamento abaixo. -->

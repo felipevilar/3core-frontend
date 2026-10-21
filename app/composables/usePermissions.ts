@@ -11,6 +11,7 @@ const LANDING_ROUTES: { path: string, permission: string | null }[] = [
   { path: '/chamados', permission: 'atendimentos.ver' },
   { path: '/agenda', permission: 'agenda.ver' },
   { path: '/chamados/solicitacoes', permission: 'atendimentos.ver_solicitacoes' },
+  { path: '/meu-dia', permission: 'atendimentos.ver_solicitacoes' },
   { path: '/financeiro', permission: 'financeiro.ver' },
   { path: '/financeiro/meus-ganhos', permission: 'financeiro.ver_proprio' },
   { path: '/landing-config', permission: 'landing.ver' },

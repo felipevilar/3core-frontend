@@ -97,6 +97,29 @@ Ciclo de vida completo de chamados de serviço:
 - Permissões: `financeiro.ver`, `financeiro.gerenciar`, `financeiro.ver_proprio`
 - Rotas dashboard: `/financeiro` (admin) e `/meus-ganhos` (técnico)
 
+### Visitas, campo e locais do cliente
+
+- **Visitas** (`chamado_visitas`): um chamado tem N visitas; o chamado espelha a visita atual (`visitaAtualId`, `visitaAtual`, `visitas[]`). Card "Visitas" na ficha do chamado com status, técnico, agendamento/duração, horas/km, distância do check-in, pausas, assinatura (signed URL) e avaliação. Gestor cria **Nova visita** (retorno) quando a atual está finalizada/cancelada e cancela a visita atual com motivo.
+- Novo status **`pausado`** (técnico pausa/retoma em `em_atendimento`); o tempo em pausa é descontado das horas sugeridas (`GET /chamados/:id/previa-finalizacao`).
+- Ações de campo (`a-caminho`, `chegada`, `finalizar`) enviam geolocalização best-effort (`useDeviceGeo`, 8s timeout, toast discreto se falhar) e o **código de check-in/check-out** quando o chamado exige (`exigeCodigoCheckin/Checkout`; o código em claro só vem para gestores).
+- Finalizar: horas pré-preenchidas pela prévia, **assinatura do cliente** no canvas (`SignaturePad.client.vue` → `POST :id/assinatura/upload-url` → PUT PNG → `assinatura: { storagePath, assinadoPor, assinadoDoc }`) e **avaliação** 1–5 estrelas. Assinatura obrigatória conforme `GET /configuracoes` (tolerante a 403).
+- Atribuir/Nova visita aceitam `agendadoPara` e `duracaoPrevistaMin`.
+- **Locais do cliente** (`client_locais`): CRUD na ficha do cliente (`/clientes/:id`) com endereço, coordenadas, contato e códigos; `Client.contratanteId/contratante` (select no `ClientForm`) e lista de "Clientes finais" (`GET /clients?contratanteId=`). Novo chamado e edição permitem escolher o local e copiar endereço/cidade/coords/contato; campos `contatoLocalNome/Telefone`, `latitude/longitude` (link Google Maps).
+- **Meu dia** (`/meu-dia`, perm `atendimentos.ver_solicitacoes`): rota do dia do técnico via `GET /chamados/minha-rota?data=`, mobile-first, com botões grandes (aceitar / a caminho / cheguei / pausar / retomar / finalizar → ficha).
+- **Settings → Operação** (`/settings/operacao`, perm `configuracoes.ver`; salvar com `configuracoes.gerenciar`): `ratObrigatoria`, `assinaturaObrigatoria`, `geolocalizacaoObrigatoria`, `avaliacaoHabilitada`, `solicitacaoExpiraHoras`, `permitirAgendarNoPassado`.
+- Agenda: itens agora têm `visitaId/visitaNumero/duracaoPrevistaMin/ordemRota`; mostra "Visita N" quando N > 1 e cor para `pausado`.
+- Tipos: `ChamadoVisita`, `ChamadoVisitaPausa`, `ClientLocal`, `ClientLocalPayload`, `AppConfig`, `RotaItem`, `FinalizarPayload`; `LineItemTipo` corrigido para `servico | material | deslocamento | extra | ajuste`.
+
+### Fase 3 — Serviços, SLA, motivos, comentários, arquivamento e notificações
+
+- **Serviços** (`/settings/servicos`, perms `servicos.ver`/`servicos.gerenciar`): catálogo com nome, descrição, duração padrão (min), valor sugerido ao cliente (string canônica) e ativo. Novo chamado e edição aceitam `servicoId` (título herda o nome; filtro `servicoId` na lista).
+- **SLA** (`/settings/sla`, perms `configuracoes.ver`/`gerenciar`): políticas por cliente e/ou prioridade com `horasPrimeiraVisita`/`horasConclusao`. Chamado expõe `prazoPrimeiraVisita`, `prazoConclusao`, `primeiraVisitaEm`, `slaPrimeiraVisitaEstourado`, `slaConclusaoEstourado`; badges no header da ficha (estourado / cumprido / tempo restante) e "SLA estourado" na lista + filtro `slaEstourado=true`.
+- **Motivos** (`/settings/motivos`): catálogo por tipo (`cancelamento | recusa | reabertura | pausa`) via `GET /configuracoes/motivos?tipo=`; os modais de Cancelar/Reabrir/Recusar/Cancelar visita/Pausar (ficha e Meu dia) ganharam select opcional (`motivoId`) além do texto. `useMotivos()` faz cache por tipo.
+- **Comentários**: card na ficha (`GET/POST /chamados/:id/comentarios`, `DELETE` para autor ou gestor; Ctrl+Enter envia).
+- **Arquivar/Desarquivar** (gestor; só fechado/cancelado): somem da lista padrão; filtro "Incluir arquivados".
+- **Notificações in-app**: `useNotificacoes()` (count com polling de 60 s via `useIntervalFn` no layout, lista, marcar lida/todas). Sino com badge no header da sidebar (`default.vue`) e em `dashboard.vue`; `NotificationsSlideover.vue` deixou de usar o mock `server/api/notifications` — clique marca como lida e navega para `link`.
+- Labels de evento: `sla_violado`, `comentario`, `arquivado`, `desarquivado`.
+
 ---
 
 ## Componentes reutilizáveis

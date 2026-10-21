@@ -5,6 +5,14 @@ const route = useRoute()
 const toast = useToast()
 const { can } = usePermissions()
 const { count: solicitacoesCount, refresh: refreshSolicitacoes } = useSolicitacoesCount()
+const { isNotificationsSlideoverOpen } = useDashboard()
+const { count: notificacoesCount, refreshCount: refreshNotificacoes } = useNotificacoes()
+
+// Sino: contagem de não lidas com polling de 60 s (pausa fora da aba via vueuse).
+onMounted(() => {
+  refreshNotificacoes()
+})
+useIntervalFn(refreshNotificacoes, 60_000)
 
 // Carrega a contagem ao montar o layout (só para técnicos, o composable filtra).
 onMounted(() => { refreshSolicitacoes() })
@@ -70,6 +78,12 @@ const links = computed<NavigationMenuItem[][]>(() => {
     permission: 'atendimentos.ver',
     onSelect: () => { open.value = false }
   }, solicitacoesItem.value, {
+    label: 'Meu dia',
+    icon: 'i-lucide-route',
+    to: '/meu-dia',
+    permission: 'atendimentos.ver_solicitacoes',
+    onSelect: () => { open.value = false }
+  }, {
     label: 'Agenda',
     icon: 'i-lucide-calendar-days',
     to: '/agenda',
@@ -128,6 +142,26 @@ const links = computed<NavigationMenuItem[][]>(() => {
       label: 'Permissões',
       to: '/settings/roles',
       permission: 'roles.ver',
+      onSelect: () => { open.value = false }
+    }, {
+      label: 'Operação',
+      to: '/settings/operacao',
+      permission: 'configuracoes.ver',
+      onSelect: () => { open.value = false }
+    }, {
+      label: 'Serviços',
+      to: '/settings/servicos',
+      permission: 'servicos.ver',
+      onSelect: () => { open.value = false }
+    }, {
+      label: 'SLA',
+      to: '/settings/sla',
+      permission: 'configuracoes.ver',
+      onSelect: () => { open.value = false }
+    }, {
+      label: 'Motivos',
+      to: '/settings/motivos',
+      permission: 'configuracoes.ver',
       onSelect: () => { open.value = false }
     }, {
       label: 'Segurança',
@@ -192,7 +226,26 @@ onMounted(async () => {
     >
       <template #header="{ collapsed }">
         <UDashboardSidebarCollapse :side="collapsed ? 'right' : 'left'" />
-        <span v-if="!collapsed">3CORE Tecnologia</span>
+        <span v-if="!collapsed" class="truncate">3CORE Tecnologia</span>
+        <UTooltip text="Notificações" :shortcuts="['N']" :class="collapsed ? '' : 'ms-auto'">
+          <UButton
+            color="neutral"
+            variant="ghost"
+            square
+            size="sm"
+            aria-label="Notificações"
+            @click="isNotificationsSlideoverOpen = true"
+          >
+            <UChip
+              color="error"
+              inset
+              :show="notificacoesCount > 0"
+              :text="notificacoesCount > 99 ? '99+' : notificacoesCount"
+            >
+              <UIcon name="i-lucide-bell" class="size-5 shrink-0" />
+            </UChip>
+          </UButton>
+        </UTooltip>
       </template>
 
       <template #default="{ collapsed }">
