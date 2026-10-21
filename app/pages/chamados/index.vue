@@ -76,10 +76,7 @@ const { data: tecnicos } = await useAsyncData(
     : Promise.resolve([] as TechnicianListItem[])),
   { default: () => [] as TechnicianListItem[] }
 )
-const tecnicoOptions = computed<Opt<number>[]>(() =>
-  (tecnicos.value ?? []).map(t => ({ label: t.name, value: t.userId }))
-)
-const mostrarFiltroTecnico = computed(() => podeGerenciar && tecnicoOptions.value.length > 0)
+const mostrarFiltroTecnico = computed(() => podeGerenciar && (tecnicos.value?.length ?? 0) > 0)
 
 // Serviços do catálogo para o filtro (técnico também tem servicos.ver).
 const { data: servicos } = await useAsyncData(
@@ -99,7 +96,7 @@ const draft = reactive({
   search: '',
   status: [] as Opt<ChamadoStatus>[],
   prioridade: [] as Opt<string>[],
-  tecnicos: [] as Opt<number>[],
+  tecnicoIds: [] as number[],
   servicoId: 0,
   slaEstourado: false,
   incluirArquivados: false,
@@ -118,8 +115,8 @@ function buildParams(): Record<string, unknown> {
   if (draft.search.trim()) p.search = draft.search.trim()
   if (draft.status.length) p.status = draft.status.map(s => s.value)
   if (draft.prioridade.length) p.prioridade = draft.prioridade.map(s => s.value)
-  if (mostrarFiltroTecnico.value && draft.tecnicos.length)
-    p.tecnicoUserIds = draft.tecnicos.map(t => t.value)
+  if (mostrarFiltroTecnico.value && draft.tecnicoIds.length)
+    p.tecnicoUserIds = [...draft.tecnicoIds]
   if (draft.servicoId) p.servicoId = draft.servicoId
   if (draft.slaEstourado) p.slaEstourado = true
   if (draft.incluirArquivados) p.incluirArquivados = true
@@ -160,7 +157,7 @@ function limpar() {
   draft.search = ''
   draft.status = []
   draft.prioridade = []
-  draft.tecnicos = []
+  draft.tecnicoIds = []
   draft.servicoId = 0
   draft.slaEstourado = false
   draft.incluirArquivados = false
@@ -268,13 +265,12 @@ const columns: TableColumn<Chamado>[] = [
               placeholder="Prioridade"
               icon="i-lucide-flag"
             />
-            <USelectMenu
+            <TechniciansTecnicoSelect
               v-if="mostrarFiltroTecnico"
-              v-model="draft.tecnicos"
-              :items="tecnicoOptions"
+              v-model="draft.tecnicoIds"
+              :tecnicos="tecnicos ?? []"
               multiple
               placeholder="Técnicos"
-              icon="i-lucide-hard-hat"
             />
           </div>
 

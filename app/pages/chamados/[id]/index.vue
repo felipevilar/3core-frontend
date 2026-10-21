@@ -215,12 +215,8 @@ const { data: tecnicos } = await useAsyncData(
       : Promise.resolve([] as TechnicianListItem[]),
   { default: () => [] as TechnicianListItem[] }
 )
-const tecnicoItems = computed(() =>
-  (tecnicos.value ?? []).map(t => ({
-    label: `${t.name} (${t.email})`,
-    value: t.userId
-  }))
-)
+// Só técnicos ativos podem receber novas visitas.
+const tecnicosAtivos = computed(() => (tecnicos.value ?? []).filter(t => t.isActive))
 async function confirmarAtribuir() {
   if (!tecnicoSel.value) return
   await acao(
@@ -2149,12 +2145,7 @@ async function removerRat(ratId: number, fileName: string) {
     <template #body>
       <div class="space-y-4">
         <UFormField label="Técnico">
-          <USelect
-            v-model="tecnicoSel"
-            :items="tecnicoItems"
-            placeholder="Selecione"
-            class="w-full"
-          />
+          <TechniciansTecnicoSelect v-model="tecnicoSel" :tecnicos="tecnicosAtivos" />
         </UFormField>
         <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <UFormField label="Data e hora" help="Opcional — agendamento da visita">
@@ -2528,12 +2519,7 @@ async function removerRat(ratId: number, fileName: string) {
           As horas e o deslocamento da nova visita serão somados ao custo do chamado.
         </p>
         <UFormField label="Técnico" required>
-          <USelect
-            v-model="novaVisitaForm.tecnicoUserId"
-            :items="tecnicoItems"
-            placeholder="Selecione"
-            class="w-full"
-          />
+          <TechniciansTecnicoSelect v-model="novaVisitaForm.tecnicoUserId" :tecnicos="tecnicosAtivos" />
         </UFormField>
         <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <UFormField label="Data e hora" help="Opcional">
