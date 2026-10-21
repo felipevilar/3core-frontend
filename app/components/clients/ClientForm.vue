@@ -12,6 +12,22 @@ const emit = defineEmits<{
   cancel: []
 }>()
 
+const { $api } = useNuxtApp()
+
+// Contratante: outro cliente (exclui o próprio ao editar).
+const contratanteId = ref<number>(props.initial?.contratanteId ?? 0)
+const { data: clientes } = await useAsyncData(
+  'clients-for-contratante',
+  () => $api<Client[]>('/clients'),
+  { default: () => [] as Client[] }
+)
+const contratanteItems = computed(() => [
+  { label: 'Nenhum (cliente direto)', value: 0 },
+  ...(clientes.value ?? [])
+    .filter(c => c.id !== props.initial?.id)
+    .map(c => ({ label: c.nomeFantasia || c.nome, value: c.id }))
+])
+
 const tipoItems = [
   { label: 'Pessoa Jurídica', value: 'pj' as ClientType },
   { label: 'Pessoa Física', value: 'pf' as ClientType }
@@ -66,7 +82,6 @@ const isPJ = computed(() => state.tipo === 'pj')
 
 const errors = reactive<{ nome?: string }>({})
 
-
 function onSubmit() {
   errors.nome = state.nome.trim().length >= 2 ? undefined : 'Informe o nome (mín. 2 caracteres)'
   if (errors.nome) return
@@ -93,7 +108,8 @@ function onSubmit() {
     cityCode: cityCode.value,
     observacoes: clean(state.observacoes),
     ativo: state.ativo,
-    emiteNotaFiscal: state.emiteNotaFiscal
+    emiteNotaFiscal: state.emiteNotaFiscal,
+    contratanteId: contratanteId.value || null
   }
   // e-mail vazio: omite do corpo para não bater no @IsEmail.
   if (!payload.email) delete payload.email
@@ -138,6 +154,13 @@ function onSubmit() {
         <UFormField v-else label="CPF">
           <UInput v-model="state.cpf" class="w-full" placeholder="000.000.000-00" />
         </UFormField>
+        <UFormField
+          label="Contratante"
+          class="sm:col-span-2"
+          help="Se este é um cliente final atendido por meio de outro cliente (ex.: integradora), selecione-o"
+        >
+          <USelect v-model="contratanteId" :items="contratanteItems" class="w-full" />
+        </UFormField>
       </div>
     </section>
 
@@ -148,7 +171,12 @@ function onSubmit() {
       </h3>
       <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <UFormField label="E-mail">
-          <UInput v-model="state.email" type="email" class="w-full" placeholder="contato@exemplo.com" />
+          <UInput
+            v-model="state.email"
+            type="email"
+            class="w-full"
+            placeholder="contato@exemplo.com"
+          />
         </UFormField>
         <UFormField label="Telefone">
           <UInput v-model="state.telefone" class="w-full" placeholder="(00) 00000-0000" />
@@ -180,11 +208,21 @@ function onSubmit() {
       <h3 class="text-xs font-semibold uppercase tracking-wider text-muted">
         Observações
       </h3>
-      <UTextarea v-model="state.observacoes" class="w-full" :rows="3" placeholder="Anotações internas sobre o cliente" />
+      <UTextarea
+        v-model="state.observacoes"
+        class="w-full"
+        :rows="3"
+        placeholder="Anotações internas sobre o cliente"
+      />
     </section>
 
     <div class="flex justify-end gap-2 border-t border-default pt-4">
-      <UButton label="Cancelar" color="neutral" variant="subtle" @click="emit('cancel')" />
+      <UButton
+        label="Cancelar"
+        color="neutral"
+        variant="subtle"
+        @click="emit('cancel')"
+      />
       <UButton
         type="submit"
         :label="submitLabel ?? 'Salvar'"

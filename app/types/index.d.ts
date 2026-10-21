@@ -240,8 +240,58 @@ export interface Client {
   ativo: boolean
   /** Padrão de nota fiscal nos chamados do cliente (com nota há imposto). */
   emiteNotaFiscal: boolean
+  /** Cliente contratante (quando este é um cliente final). */
+  contratanteId: number | null
+  contratante: { id: number, nome: string } | null
+  /** Locais (sites) do cliente — só em GET /clients/:id. */
+  locais?: ClientLocal[]
   createdAt: string
   updatedAt: string
+}
+
+/** Local (site / ponto de atendimento) de um cliente. */
+export interface ClientLocal {
+  id: number
+  clientId: number
+  nome: string
+  cep: string | null
+  logradouro: string | null
+  numero: string | null
+  complemento: string | null
+  bairro: string | null
+  pontoReferencia: string | null
+  cityCode: number | null
+  city: CityRef | null
+  latitude: number | null
+  longitude: number | null
+  contatoNome: string | null
+  contatoTelefone: string | null
+  codigoCheckin: string | null
+  codigoCheckout: string | null
+  observacoes: string | null
+  ativo: boolean
+  createdAt: string
+  updatedAt: string
+}
+
+/** Corpo aceito por POST/PATCH /clients/:id/locais. */
+export interface ClientLocalPayload {
+  nome?: string
+  cep?: string
+  logradouro?: string
+  numero?: string
+  complemento?: string
+  bairro?: string
+  pontoReferencia?: string
+  cityCode?: number | null
+  latitude?: number | null
+  longitude?: number | null
+  contatoNome?: string
+  contatoTelefone?: string
+  codigoCheckin?: string
+  codigoCheckout?: string
+  observacoes?: string
+  ativo?: boolean
 }
 
 /** Corpo aceito por POST /clients e PATCH /clients/:id. */
@@ -263,6 +313,7 @@ export interface ClientPayload {
   observacoes?: string | null
   ativo?: boolean
   emiteNotaFiscal?: boolean
+  contratanteId?: number | null
 }
 
 // ---- Chamados / Financeiro ----
@@ -272,8 +323,19 @@ export type ChamadoStatus
     | 'atribuido'
     | 'a_caminho'
     | 'em_atendimento'
+    | 'pausado'
     | 'finalizado'
     | 'fechado'
+    | 'cancelado'
+
+/** Status de uma visita (não existe 'aberto'/'fechado' por visita). */
+export type VisitaStatus
+  = | 'solicitado'
+    | 'atribuido'
+    | 'a_caminho'
+    | 'em_atendimento'
+    | 'pausado'
+    | 'finalizado'
     | 'cancelado'
 
 export type ChamadoPrioridade = 'baixa' | 'media' | 'alta' | 'urgente'
@@ -282,14 +344,15 @@ export type PaymentStatus = 'nao_aplicavel' | 'pendente' | 'aprovado' | 'pago'
 export type ClientePaymentStatus = 'pendente' | 'pago'
 export type LineItemNatureza = 'custo' | 'receita'
 export type LineItemTipo
-  = | 'chamada_fixa'
-    | 'mao_de_obra'
+  = | 'servico'
+    | 'material'
     | 'deslocamento'
     | 'extra'
     | 'ajuste'
 
 export interface ChamadoLineItem {
   id: number
+  visitaId: number | null
   natureza: LineItemNatureza
   tipo: LineItemTipo
   descricao: string | null
@@ -297,6 +360,161 @@ export interface ChamadoLineItem {
   valorUnitario: string
   valorTotal: string
   origem: 'auto_snapshot' | 'manual'
+}
+
+export interface ChamadoVisitaPausa {
+  id: number
+  inicioEm: string
+  fimEm: string | null
+  motivo: string | null
+  motivoId?: number | null
+}
+
+export type MotivoTipo = 'cancelamento' | 'recusa' | 'reabertura' | 'pausa'
+
+/** Motivo classificado do catálogo (GET /configuracoes/motivos). */
+export interface Motivo {
+  id: number
+  tipo: MotivoTipo
+  nome: string
+  ordem: number
+  ativo: boolean
+}
+
+export interface MotivoPayload {
+  tipo?: MotivoTipo
+  nome?: string
+  ordem?: number
+  ativo?: boolean
+}
+
+/** Política de SLA (GET /configuracoes/sla). Horas contadas da abertura. */
+export interface SlaPolitica {
+  id: number
+  nome: string
+  clientId: number | null
+  prioridade: ChamadoPrioridade | null
+  horasPrimeiraVisita: number | null
+  horasConclusao: number | null
+  ativo: boolean
+  createdAt: string
+  updatedAt: string
+}
+
+export interface SlaPoliticaPayload {
+  nome?: string
+  clientId?: number | null
+  prioridade?: ChamadoPrioridade | null
+  horasPrimeiraVisita?: number | null
+  horasConclusao?: number | null
+  ativo?: boolean
+}
+
+/** Serviço do catálogo (GET /servicos). Valor em string canônica ("350.00"). */
+export interface Servico {
+  id: number
+  nome: string
+  descricao: string | null
+  duracaoPadraoMin: number | null
+  valorSugeridoCliente: string | null
+  ativo: boolean
+  createdAt: string
+  updatedAt: string
+}
+
+export interface ServicoPayload {
+  nome?: string
+  descricao?: string | null
+  duracaoPadraoMin?: number | null
+  valorSugeridoCliente?: string | null
+  ativo?: boolean
+}
+
+/** Comentário interno do chamado (GET /chamados/:id/comentarios). */
+export interface ChamadoComentario {
+  id: number
+  autorUserId: number
+  autorNome: string
+  texto: string
+  createdAt: string
+}
+
+/** Notificação in-app do usuário (GET /notificacoes). */
+export interface Notificacao {
+  id: number
+  tipo: string
+  titulo: string
+  corpo: string | null
+  link: string | null
+  lidaEm: string | null
+  createdAt: string
+}
+
+/** Visita de um chamado (serializada). */
+export interface ChamadoVisita {
+  id: number
+  chamadoId: number
+  numero: number
+  status: VisitaStatus
+  tecnicoUserId: number | null
+  tecnicoNome: string | null
+  agendadoPara: string | null
+  duracaoPrevistaMin: number | null
+  ordemRota: number | null
+  solicitacaoExpiraEm: string | null
+  atribuidoEm: string | null
+  aceitoEm: string | null
+  visualizadoEm: string | null
+  aCaminhoEm: string | null
+  chegadaEm: string | null
+  finalizadoEm: string | null
+  canceladoEm: string | null
+  motivoCancelamento: string | null
+  motivoId?: number | null
+  horasTrabalhadas: string | null
+  kmDeslocamento: string | null
+  observacao: string | null
+  aCaminhoLat: number | null
+  aCaminhoLng: number | null
+  chegadaLat: number | null
+  chegadaLng: number | null
+  chegadaPrecisaoM: number | null
+  chegadaDistanciaM: number | null
+  finalizadoLat: number | null
+  finalizadoLng: number | null
+  assinado: boolean
+  assinadoPor: string | null
+  assinadoDoc: string | null
+  assinadoEm: string | null
+  avaliacaoNota: number | null
+  avaliacaoComentario: string | null
+  pausas: ChamadoVisitaPausa[]
+  createdAt: string
+}
+
+/** Posição do dispositivo enviada nas ações de campo. */
+export interface GeoPayload {
+  lat: number
+  lng: number
+  precisaoM?: number
+}
+
+/** GET /chamados/:id/previa-finalizacao. */
+export interface PreviaFinalizacao {
+  horasSugeridas: string | null
+  chegadaEm?: string | null
+  pausas: ChamadoVisitaPausa[]
+}
+
+/** Corpo de POST /chamados/:id/finalizar. */
+export interface FinalizarPayload {
+  horasTrabalhadas: number
+  kmDeslocamento: number
+  observacao?: string
+  geo?: GeoPayload
+  codigo?: string
+  assinatura?: { storagePath: string, assinadoPor: string, assinadoDoc?: string }
+  avaliacao?: { nota: number, comentario?: string }
 }
 
 /** Chamado (serializado — receita/margem só vêm com financeiro.ver). */
@@ -310,8 +528,24 @@ export interface Chamado {
   prioridade: ChamadoPrioridade
   status: ChamadoStatus
   agendadoPara: string | null
+  servicoId: number | null
+  servico: { id: number, nome: string } | null
+  /** Arquivado (oculto da lista padrão); só fechado/cancelado. */
+  arquivadoEm: string | null
+  /** SLA: prazos absolutos (ISO) calculados na abertura e marcos. */
+  prazoPrimeiraVisita: string | null
+  prazoConclusao: string | null
+  primeiraVisitaEm: string | null
+  slaPrimeiraVisitaEstourado: boolean
+  slaConclusaoEstourado: boolean
+  motivoCancelamentoId: number | null
+  /** Visita em curso (espelhada nos campos do chamado). */
+  visitaAtualId: number | null
+  visitaAtual?: ChamadoVisita | null
+  visitas?: ChamadoVisita[]
   clientId: number
-  client: { id: number, nome: string, tipo: string } | null
+  client: { id: number, nome: string, tipo: string, telefone?: string | null } | null
+  localId: number | null
   cityCode: number | null
   city: CityRef | null
   cep: string | null
@@ -320,6 +554,16 @@ export interface Chamado {
   complemento: string | null
   bairro: string | null
   pontoReferencia: string | null
+  latitude: number | null
+  longitude: number | null
+  contatoLocalNome: string | null
+  contatoLocalTelefone: string | null
+  /** O cliente exige código no check-in / check-out (técnico só vê o flag). */
+  exigeCodigoCheckin: boolean
+  exigeCodigoCheckout: boolean
+  /** Códigos em claro — só para gestores. */
+  codigoCheckin?: string | null
+  codigoCheckout?: string | null
   tecnicoUserId: number | null
   tecnicoNome: string | null
   atribuidoEm: string | null
@@ -356,6 +600,7 @@ export interface Chamado {
   version: number
   lineItems?: ChamadoLineItem[]
   avisoSemRat?: boolean
+  horasSugeridas?: string | null
 }
 
 export interface ChamadoEvent {
@@ -382,7 +627,9 @@ export interface ChamadoRat {
 
 export interface CreateChamadoPayload {
   clientId: number
-  titulo: string
+  /** Opcional quando há `servicoId` (herda o nome do serviço). */
+  titulo?: string
+  servicoId?: number
   descricao?: string | null
   chamadoInterno?: string | null
   chamadoExterno?: string | null
@@ -394,6 +641,13 @@ export interface CreateChamadoPayload {
   complemento?: string | null
   bairro?: string | null
   pontoReferencia?: string | null
+  localId?: number | null
+  latitude?: number | null
+  longitude?: number | null
+  contatoLocalNome?: string | null
+  contatoLocalTelefone?: string | null
+  codigoCheckin?: string | null
+  codigoCheckout?: string | null
   agendadoPara?: string | null
 }
 
@@ -403,6 +657,8 @@ export interface CreateChamadoPayload {
  */
 export interface UpdateChamadoPayload {
   titulo?: string
+  /** null limpa o serviço. */
+  servicoId?: number | null
   descricao?: string
   chamadoInterno?: string
   chamadoExterno?: string
@@ -414,6 +670,14 @@ export interface UpdateChamadoPayload {
   complemento?: string
   bairro?: string
   pontoReferencia?: string
+  /** null desvincula do local (endereço copiado permanece). */
+  localId?: number | null
+  latitude?: number | null
+  longitude?: number | null
+  contatoLocalNome?: string
+  contatoLocalTelefone?: string
+  codigoCheckin?: string
+  codigoCheckout?: string
   agendadoPara?: string | null
 }
 
@@ -434,6 +698,11 @@ export interface DateRangeYmd {
 /** Item enxuto retornado por GET /chamados/agenda. */
 export interface AgendaItem {
   id: number
+  /** null para chamados abertos ainda sem visita. */
+  visitaId: number | null
+  visitaNumero: number | null
+  duracaoPrevistaMin: number | null
+  ordemRota: number | null
   codigo: string
   titulo: string
   status: ChamadoStatus
@@ -447,6 +716,50 @@ export interface AgendaItem {
   logradouro: string | null
   numero: string | null
   bairro: string | null
+}
+
+/** Item de GET /chamados/minha-rota (visita + resumo do chamado). */
+export interface RotaItem {
+  visita: ChamadoVisita
+  chamado: {
+    id: number
+    codigo: string
+    titulo: string
+    descricao: string | null
+    prioridade: ChamadoPrioridade
+    status: ChamadoStatus
+    clienteNome: string | null
+    clienteTelefone: string | null
+    cidadeNome: string | null
+    uf: string | null
+    cep: string | null
+    logradouro: string | null
+    numero: string | null
+    complemento: string | null
+    bairro: string | null
+    pontoReferencia: string | null
+    latitude: number | null
+    longitude: number | null
+    contatoLocalNome: string | null
+    contatoLocalTelefone: string | null
+    exigeCodigoCheckin: boolean
+    exigeCodigoCheckout: boolean
+    /** Ainda não expostos por GET /chamados/minha-rota; opcionais. */
+    slaPrimeiraVisitaEstourado?: boolean
+    slaConclusaoEstourado?: boolean
+  }
+}
+
+/** GET/PATCH /configuracoes — flags operacionais da conta. */
+export interface AppConfig {
+  ratObrigatoria: boolean
+  assinaturaObrigatoria: boolean
+  geolocalizacaoObrigatoria: boolean
+  avaliacaoHabilitada: boolean
+  /** Horas para o técnico aceitar a solicitação; null = não expira. */
+  solicitacaoExpiraHoras: number | null
+  permitirAgendarNoPassado: boolean
+  updatedAt?: string | null
 }
 
 /** Uma linha de atendimento no painel financeiro (GET /financeiro/overview). */

@@ -1,10 +1,12 @@
 <script setup lang="ts">
-import type { Chamado, Client, CreateChamadoPayload } from '~/types'
+import type { Chamado, Client, ClientLocal, CreateChamadoPayload, Servico } from '~/types'
 
 definePageMeta({ permission: 'atendimentos.criar' })
 
 const { $api } = useNuxtApp()
 const toast = useToast()
+const { can } = usePermissions()
+const podeGerenciar = can('atendimentos.gerenciar')
 
 const { data: clients } = await useAsyncData('clients-for-chamado', () =>
   $api<Client[]>('/clients')
@@ -16,8 +18,22 @@ const clientItems = computed(() =>
     .map(c => ({ label: c.nomeFantasia || c.nome, value: c.id }))
 )
 
+// Serviços do catálogo: preenchem o título (se vazio) e mostram a duração padrão.
+const { data: servicos } = await useAsyncData(
+  'servicos-novo-chamado',
+  () => (can('servicos.ver')
+    ? $api<Servico[]>('/servicos').catch(() => [] as Servico[])
+    : Promise.resolve([] as Servico[])),
+  { default: () => [] as Servico[] }
+)
+const servicoItems = computed(() => [
+  { label: 'Sem serviço do catálogo', value: 0 },
+  ...(servicos.value ?? []).map(sv => ({ label: sv.nome, value: sv.id }))
+])
+
 const state = reactive({
   clientId: undefined as number | undefined,
+  servicoId: 0,
   cityCode: null as number | null,
   titulo: '',
   descricao: '',
@@ -31,8 +47,58 @@ const state = reactive({
   numero: '',
   bairro: '',
   complemento: '',
-  pontoReferencia: ''
+  pontoReferencia: '',
+  // Local do cliente + contato no local (opcionais).
+  localId: null as number | null,
+  latitude: '',
+  longitude: '',
+  contatoLocalNome: '',
+  contatoLocalTelefone: '',
+  codigoCheckin: '',
+  codigoCheckout: ''
 })
+
+// Locais (sites) do cliente selecionado.
+const locais = ref<ClientLocal[]>([])
+const locaisLoading = ref(false)
+const localItems = computed(() => [
+  { label: 'Endereço avulso (sem local)', value: 0 },
+  ...locais.value.filter(l => l.ativo).map(l => ({ label: l.nome, value: l.id }))
+])
+async function carregarLocais(clientId: number | undefined) {
+  locais.value = []
+  state.localId = null
+  if (!clientId || !can('clientes.ver')) return
+  locaisLoading.value = true
+  try {
+    locais.value = await $api<ClientLocal[]>(`/clients/${clientId}/locais`)
+  } catch {
+    locais.value = []
+  } finally {
+    locaisLoading.value = false
+  }
+}
+
+// Ao escolher um local, preenche endereço, cidade, coordenadas e contato.
+function aplicarLocal(localId: number) {
+  state.localId = localId || null
+  const l = locais.value.find(x => x.id === localId)
+  if (!l) return
+  state.cep = l.cep ?? ''
+  state.logradouro = l.logradouro ?? ''
+  state.numero = l.numero ?? ''
+  state.bairro = l.bairro ?? ''
+  state.complemento = l.complemento ?? ''
+  state.pontoReferencia = l.pontoReferencia ?? ''
+  state.latitude = l.latitude != null ? String(l.latitude) : ''
+  state.longitude = l.longitude != null ? String(l.longitude) : ''
+  state.contatoLocalNome = l.contatoNome ?? ''
+  state.contatoLocalTelefone = l.contatoTelefone ?? ''
+  state.codigoCheckin = l.codigoCheckin ?? ''
+  state.codigoCheckout = l.codigoCheckout ?? ''
+  if (l.cityCode) setCidade(l.cityCode, l.city ? `${l.city.nome} / ${l.city.uf}` : '')
+  mostrarEndereco.value = true
+}
 
 // Seção de endereço recolhida por padrão (é opcional).
 const mostrarEndereco = ref(true)
@@ -53,13 +119,14 @@ const clienteSelecionado = computed(() =>
   (clients.value ?? []).find(c => c.id === state.clientId) ?? null
 )
 
-// Ao trocar de cliente, sugere a cidade do cliente (editável).
-watch(() => state.clientId, () => {
+// Ao trocar de cliente, sugere a cidade do cliente (editável) e carrega os locais.
+watch(() => state.clientId, (clientId) => {
   const city = clienteSelecionado.value?.city
   setCidade(
     clienteSelecionado.value?.cityCode ?? null,
     city ? `${city.nome} / ${city.uf}` : ''
   )
+  carregarLocais(clientId)
 })
 
 async function buscarCep() {
@@ -93,6 +160,17 @@ async function buscarCep() {
   }
 }
 
+const servicoSelecionado = computed(() =>
+  (servicos.value ?? []).find(sv => sv.id === state.servicoId) ?? null
+)
+// Ao escolher o serviço, sugere o título (só se ainda vazio ou igual ao serviço anterior).
+watch(() => state.servicoId, (_novo, antigo) => {
+  const anterior = (servicos.value ?? []).find(sv => sv.id === antigo)
+  if (servicoSelecionado.value && (!state.titulo.trim() || state.titulo === anterior?.nome)) {
+    state.titulo = servicoSelecionado.value.nome
+  }
+})
+
 const prioridadeItems = [
   { label: 'Baixa', value: 'baixa' },
   { label: 'Média', value: 'media' },
@@ -110,7 +188,7 @@ const clean = (v: string) => {
 
 async function salvar() {
   errors.clientId = state.clientId ? undefined : 'Selecione o cliente'
-  errors.titulo = state.titulo.trim().length >= 2 ? undefined : 'Informe o título'
+  errors.titulo = state.titulo.trim().length >= 2 || state.servicoId ? undefined : 'Informe o título ou escolha um serviço'
   errors.cityCode = state.cityCode ? undefined : 'Selecione a cidade do atendimento'
   if (errors.clientId || errors.titulo || errors.cityCode) return
 
@@ -119,7 +197,8 @@ async function salvar() {
     const payload: CreateChamadoPayload = {
       clientId: state.clientId!,
       cityCode: state.cityCode!,
-      titulo: state.titulo.trim(),
+      titulo: state.titulo.trim() || undefined,
+      servicoId: state.servicoId || undefined,
       descricao: clean(state.descricao),
       chamadoInterno: clean(state.chamadoInterno),
       chamadoExterno: clean(state.chamadoExterno),
@@ -130,6 +209,13 @@ async function salvar() {
       bairro: clean(state.bairro),
       complemento: clean(state.complemento),
       pontoReferencia: clean(state.pontoReferencia),
+      localId: state.localId ?? undefined,
+      latitude: state.latitude === '' ? undefined : Number(state.latitude),
+      longitude: state.longitude === '' ? undefined : Number(state.longitude),
+      contatoLocalNome: clean(state.contatoLocalNome),
+      contatoLocalTelefone: clean(state.contatoLocalTelefone),
+      codigoCheckin: podeGerenciar ? clean(state.codigoCheckin) : undefined,
+      codigoCheckout: podeGerenciar ? clean(state.codigoCheckout) : undefined,
       agendadoPara: state.agendadoPara ? new Date(state.agendadoPara).toISOString() : null
     }
     const created = await $api<Chamado>('/chamados', { method: 'POST', body: payload })
@@ -173,7 +259,15 @@ async function salvar() {
             />
           </UFormField>
 
-          <UFormField label="Título" required :error="errors.titulo">
+          <UFormField
+            v-if="servicos.length"
+            label="Serviço do catálogo"
+            :help="servicoSelecionado?.duracaoPadraoMin ? `Duração padrão: ${servicoSelecionado.duracaoPadraoMin} min` : 'Opcional — padroniza o título e a duração prevista'"
+          >
+            <USelect v-model="state.servicoId" :items="servicoItems" class="w-full" />
+          </UFormField>
+
+          <UFormField label="Título" :required="!state.servicoId" :error="errors.titulo">
             <UInput v-model="state.titulo" class="w-full" placeholder="Ex.: Instalação de equipamento" />
           </UFormField>
 
@@ -223,6 +317,20 @@ async function salvar() {
             </button>
 
             <div v-if="mostrarEndereco" class="p-4 pt-0 space-y-4">
+              <UFormField
+                v-if="state.clientId && (locais.length || locaisLoading)"
+                label="Local do cliente"
+                help="Escolha um local cadastrado para preencher o endereço e o contato"
+              >
+                <USelect
+                  :model-value="state.localId ?? 0"
+                  :items="localItems"
+                  :loading="locaisLoading"
+                  class="w-full"
+                  @update:model-value="aplicarLocal"
+                />
+              </UFormField>
+
               <UFormField label="CEP" help="Preencha para buscar o endereço automaticamente">
                 <div class="flex gap-2">
                   <UInput
@@ -276,6 +384,52 @@ async function salvar() {
 
               <UFormField label="Ponto de referência">
                 <UInput v-model="state.pontoReferencia" class="w-full" placeholder="Ex.: próximo ao mercado central" />
+              </UFormField>
+
+              <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <UFormField label="Latitude" help="Opcional — valida o check-in do técnico">
+                  <UInput
+                    v-model="state.latitude"
+                    type="number"
+                    step="any"
+                    class="w-full"
+                    placeholder="-3.119"
+                  />
+                </UFormField>
+                <UFormField label="Longitude">
+                  <UInput
+                    v-model="state.longitude"
+                    type="number"
+                    step="any"
+                    class="w-full"
+                    placeholder="-60.021"
+                  />
+                </UFormField>
+              </div>
+            </div>
+          </div>
+
+          <!-- Contato no local -->
+          <div class="border border-default rounded-lg p-4 space-y-4">
+            <p class="text-sm text-highlighted flex items-center gap-2">
+              <UIcon name="i-lucide-contact" class="size-4" />
+              Contato no local
+              <span class="text-muted text-xs">(opcional)</span>
+            </p>
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <UFormField label="Nome">
+                <UInput v-model="state.contatoLocalNome" class="w-full" placeholder="Quem recebe o técnico" />
+              </UFormField>
+              <UFormField label="Telefone">
+                <UInput v-model="state.contatoLocalTelefone" class="w-full" placeholder="(00) 00000-0000" />
+              </UFormField>
+            </div>
+            <div v-if="podeGerenciar" class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <UFormField label="Código de check-in" help="Vazio = não exige">
+                <UInput v-model="state.codigoCheckin" class="w-full" />
+              </UFormField>
+              <UFormField label="Código de check-out" help="Vazio = não exige">
+                <UInput v-model="state.codigoCheckout" class="w-full" />
               </UFormField>
             </div>
           </div>

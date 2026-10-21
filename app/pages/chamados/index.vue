@@ -5,6 +5,7 @@ import type {
   ChamadoStatus,
   DateRangeYmd,
   Paginated,
+  Servico,
   TechnicianListItem
 } from '~/types'
 
@@ -54,6 +55,7 @@ const statusOptions: Opt<ChamadoStatus>[] = [
   { label: 'Atribuído', value: 'atribuido' },
   { label: 'A caminho', value: 'a_caminho' },
   { label: 'Em atendimento', value: 'em_atendimento' },
+  { label: 'Pausado', value: 'pausado' },
   { label: 'Finalizado', value: 'finalizado' },
   { label: 'Fechado', value: 'fechado' },
   { label: 'Cancelado', value: 'cancelado' }
@@ -79,12 +81,28 @@ const tecnicoOptions = computed<Opt<number>[]>(() =>
 )
 const mostrarFiltroTecnico = computed(() => podeGerenciar && tecnicoOptions.value.length > 0)
 
+// Serviços do catálogo para o filtro (técnico também tem servicos.ver).
+const { data: servicos } = await useAsyncData(
+  'servicos-filtro',
+  () => (can('servicos.ver')
+    ? $api<Servico[]>('/servicos', { params: { incluirInativos: 'true' } }).catch(() => [] as Servico[])
+    : Promise.resolve([] as Servico[])),
+  { default: () => [] as Servico[] }
+)
+const servicoOptions = computed<Opt<number>[]>(() => [
+  { label: 'Todos os serviços', value: 0 },
+  ...(servicos.value ?? []).map(sv => ({ label: sv.ativo ? sv.nome : `${sv.nome} (inativo)`, value: sv.id }))
+])
+
 // ---- Estado dos filtros (rascunho — só vai ao backend no "Filtrar") ----
 const draft = reactive({
   search: '',
   status: [] as Opt<ChamadoStatus>[],
   prioridade: [] as Opt<string>[],
   tecnicos: [] as Opt<number>[],
+  servicoId: 0,
+  slaEstourado: false,
+  incluirArquivados: false,
   criado: { de: '', ate: '' } as DateRangeYmd,
   agendado: { de: '', ate: '' } as DateRangeYmd,
   finalizado: { de: '', ate: '' } as DateRangeYmd
@@ -102,6 +120,9 @@ function buildParams(): Record<string, unknown> {
   if (draft.prioridade.length) p.prioridade = draft.prioridade.map(s => s.value)
   if (mostrarFiltroTecnico.value && draft.tecnicos.length)
     p.tecnicoUserIds = draft.tecnicos.map(t => t.value)
+  if (draft.servicoId) p.servicoId = draft.servicoId
+  if (draft.slaEstourado) p.slaEstourado = true
+  if (draft.incluirArquivados) p.incluirArquivados = true
   if (draft.criado.de) p.criadoDe = draft.criado.de
   if (draft.criado.ate) p.criadoAte = draft.criado.ate
   if (draft.agendado.de) p.agendadoDe = draft.agendado.de
@@ -140,6 +161,9 @@ function limpar() {
   draft.status = []
   draft.prioridade = []
   draft.tecnicos = []
+  draft.servicoId = 0
+  draft.slaEstourado = false
+  draft.incluirArquivados = false
   draft.criado = { de: '', ate: '' }
   draft.agendado = { de: '', ate: '' }
   draft.finalizado = { de: '', ate: '' }
@@ -254,6 +278,18 @@ const columns: TableColumn<Chamado>[] = [
             />
           </div>
 
+          <div class="flex flex-wrap items-center gap-x-6 gap-y-3">
+            <USelect
+              v-if="servicoOptions.length > 1"
+              v-model="draft.servicoId"
+              :items="servicoOptions"
+              icon="i-lucide-wrench"
+              class="w-full sm:w-64"
+            />
+            <USwitch v-model="draft.slaEstourado" label="Só SLA estourado" />
+            <USwitch v-model="draft.incluirArquivados" label="Incluir arquivados" />
+          </div>
+
           <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
             <DateRangePicker
               v-model="draft.criado"
@@ -323,14 +359,34 @@ const columns: TableColumn<Chamado>[] = [
                   <span class="text-muted text-xs font-mono">{{ row.original.codigo }}</span>
                   {{ row.original.titulo }}
                 </p>
-                <UBadge
-                  :color="prioridadeMeta(row.original.prioridade).color"
-                  variant="subtle"
-                  size="sm"
-                  class="mt-1"
-                >
-                  {{ prioridadeMeta(row.original.prioridade).label }}
-                </UBadge>
+                <div class="mt-1 flex flex-wrap items-center gap-1">
+                  <UBadge
+                    :color="prioridadeMeta(row.original.prioridade).color"
+                    variant="subtle"
+                    size="sm"
+                  >
+                    {{ prioridadeMeta(row.original.prioridade).label }}
+                  </UBadge>
+                  <UBadge
+                    v-if="row.original.slaPrimeiraVisitaEstourado || row.original.slaConclusaoEstourado"
+                    color="error"
+                    variant="subtle"
+                    size="sm"
+                    icon="i-lucide-timer-off"
+                  >
+                    SLA estourado
+                  </UBadge>
+                  <UBadge
+                    v-if="row.original.arquivadoEm"
+                    color="neutral"
+                    variant="outline"
+                    size="sm"
+                    icon="i-lucide-archive"
+                  >
+                    Arquivado
+                  </UBadge>
+                  <span v-if="row.original.servico" class="text-xs text-muted truncate">{{ row.original.servico.nome }}</span>
+                </div>
               </div>
             </template>
 
@@ -437,6 +493,24 @@ const columns: TableColumn<Chamado>[] = [
                   <span class="text-muted text-xs font-mono">{{ c.codigo }}</span>
                   <UBadge :color="prioridadeMeta(c.prioridade).color" variant="subtle" size="sm">
                     {{ prioridadeMeta(c.prioridade).label }}
+                  </UBadge>
+                  <UBadge
+                    v-if="c.slaPrimeiraVisitaEstourado || c.slaConclusaoEstourado"
+                    color="error"
+                    variant="subtle"
+                    size="sm"
+                    icon="i-lucide-timer-off"
+                  >
+                    SLA estourado
+                  </UBadge>
+                  <UBadge
+                    v-if="c.arquivadoEm"
+                    color="neutral"
+                    variant="outline"
+                    size="sm"
+                    icon="i-lucide-archive"
+                  >
+                    Arquivado
                   </UBadge>
                 </p>
                 <p class="text-highlighted text-md font-extrabold truncate my-1">

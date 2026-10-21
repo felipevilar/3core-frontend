@@ -20,6 +20,26 @@ const links = computed<NavigationMenuItem[][]>(() => [[{
       icon: 'i-lucide-shield-check',
       to: '/settings/roles'
     }]
+  : []), ...(can('configuracoes.ver')
+  ? [{
+      label: 'Operação',
+      icon: 'i-lucide-sliders-horizontal',
+      to: '/settings/operacao'
+    }, {
+      label: 'SLA',
+      icon: 'i-lucide-timer',
+      to: '/settings/sla'
+    }, {
+      label: 'Motivos',
+      icon: 'i-lucide-list-checks',
+      to: '/settings/motivos'
+    }]
+  : []), ...(can('servicos.ver')
+  ? [{
+      label: 'Serviços',
+      icon: 'i-lucide-wrench',
+      to: '/settings/servicos'
+    }]
   : []), {
   label: 'Segurança',
   icon: 'i-lucide-shield',

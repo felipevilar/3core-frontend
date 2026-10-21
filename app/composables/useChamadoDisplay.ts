@@ -1,4 +1,4 @@
-import type { ChamadoStatus, ChamadoPrioridade, PaymentStatus, ClientePaymentStatus } from '~/types'
+import type { ChamadoStatus, ChamadoPrioridade, PaymentStatus, ClientePaymentStatus, VisitaStatus } from '~/types'
 
 type BadgeColor = 'neutral' | 'primary' | 'success' | 'warning' | 'error' | 'info'
 
@@ -8,6 +8,7 @@ const STATUS_META: Record<ChamadoStatus, { label: string, color: BadgeColor }> =
   atribuido: { label: 'Atribuído', color: 'info' },
   a_caminho: { label: 'A caminho', color: 'info' },
   em_atendimento: { label: 'Em atendimento', color: 'warning' },
+  pausado: { label: 'Pausado', color: 'warning' },
   finalizado: { label: 'Finalizado', color: 'primary' },
   fechado: { label: 'Fechado', color: 'success' },
   cancelado: { label: 'Cancelado', color: 'error' }
@@ -42,6 +43,15 @@ const EVENT_LABEL: Record<string, string> = {
   solicitacao_recusada: 'Solicitação recusada',
   a_caminho: 'Técnico a caminho',
   chegada: 'Chegada confirmada',
+  pausado: 'Atendimento pausado',
+  retomado: 'Atendimento retomado',
+  visita_criada: 'Nova visita criada',
+  visita_cancelada: 'Visita cancelada',
+  solicitacao_expirada: 'Solicitação expirada',
+  sla_violado: 'SLA estourado',
+  comentario: 'Comentário',
+  arquivado: 'Arquivado',
+  desarquivado: 'Desarquivado',
   finalizado: 'Finalizado pelo técnico',
   fechado: 'Fechado pelo gestor',
   reaberto: 'Reaberto',
@@ -57,6 +67,8 @@ const EVENT_LABEL: Record<string, string> = {
 /** Helpers de exibição de chamados (labels, cores, formatação de dinheiro). */
 export function useChamadoDisplay() {
   const statusMeta = (s: ChamadoStatus) => STATUS_META[s] ?? { label: s, color: 'neutral' as BadgeColor }
+  // Visitas compartilham o mesmo mapa de status (subconjunto do do chamado).
+  const visitaStatusMeta = (s: VisitaStatus) => STATUS_META[s] ?? { label: s, color: 'neutral' as BadgeColor }
   const prioridadeMeta = (p: ChamadoPrioridade) => PRIORIDADE_META[p] ?? { label: p, color: 'neutral' as BadgeColor }
   const paymentMeta = (p: PaymentStatus) => PAYMENT_META[p] ?? { label: p, color: 'neutral' as BadgeColor }
   const clientePaymentMeta = (p: ClientePaymentStatus) => CLIENTE_PAYMENT_META[p] ?? { label: p, color: 'neutral' as BadgeColor }
@@ -73,5 +85,5 @@ export function useChamadoDisplay() {
     return `${n.toLocaleString('pt-BR', { maximumFractionDigits: 2 })}%`
   }
 
-  return { statusMeta, prioridadeMeta, paymentMeta, clientePaymentMeta, eventLabel, brl, pct }
+  return { statusMeta, visitaStatusMeta, prioridadeMeta, paymentMeta, clientePaymentMeta, eventLabel, brl, pct }
 }

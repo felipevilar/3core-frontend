@@ -11,7 +11,7 @@ import {
   addMonths,
   subMonths,
   parseISO,
-  isToday,
+  isToday
 } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
 import type { AgendaItem, ChamadoStatus } from '~/types'
@@ -29,7 +29,7 @@ const podeGerenciar = can('agenda.gerenciar')
 const mesAtual = ref(new Date())
 
 const mesTitulo = computed(() =>
-  format(mesAtual.value, 'MMMM yyyy', { locale: ptBR }),
+  format(mesAtual.value, 'MMMM yyyy', { locale: ptBR })
 )
 
 function mesAnterior() { mesAtual.value = subMonths(mesAtual.value, 1) }
@@ -109,7 +109,7 @@ const novaDataHora = ref('')
 
 function abrirReagendar(item: AgendaItem) {
   novaDataHora.value = item.agendadoPara
-    ? format(parseISO(item.agendadoPara), "yyyy-MM-dd'T'HH:mm")
+    ? format(parseISO(item.agendadoPara), 'yyyy-MM-dd\'T\'HH:mm')
     : ''
   reagendando.value = true
 }
@@ -119,7 +119,7 @@ async function confirmarReagendar() {
   try {
     await $api(`/chamados/${eventoSelecionado.value.id}/reagendar`, {
       method: 'PATCH',
-      body: { agendadoPara: novaDataHora.value ? new Date(novaDataHora.value).toISOString() : null },
+      body: { agendadoPara: novaDataHora.value ? new Date(novaDataHora.value).toISOString() : null }
     })
     toast.add({ title: 'Reagendado com sucesso', icon: 'i-lucide-check', color: 'success' })
     popoverAberto.value = false
@@ -142,9 +142,10 @@ const STATUS_DOT: Record<ChamadoStatus, string> = {
   atribuido: 'bg-info-400',
   a_caminho: 'bg-info-500',
   em_atendimento: 'bg-warning-500',
+  pausado: 'bg-warning-300',
   finalizado: 'bg-primary-500',
   fechado: 'bg-success-500',
-  cancelado: 'bg-error-500',
+  cancelado: 'bg-error-500'
 }
 
 function dotClass(status: ChamadoStatus): string {
@@ -168,9 +169,19 @@ const DIAS_SEMANA = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb']
               icon="i-lucide-calendar"
               @click="irParaHoje"
             />
-            <UButton variant="ghost" size="sm" icon="i-lucide-chevron-left" @click="mesAnterior" />
+            <UButton
+              variant="ghost"
+              size="sm"
+              icon="i-lucide-chevron-left"
+              @click="mesAnterior"
+            />
             <span class="text-sm font-medium capitalize min-w-36 text-center">{{ mesTitulo }}</span>
-            <UButton variant="ghost" size="sm" icon="i-lucide-chevron-right" @click="proximoMes" />
+            <UButton
+              variant="ghost"
+              size="sm"
+              icon="i-lucide-chevron-right"
+              @click="proximoMes"
+            />
           </div>
         </template>
       </UDashboardNavbar>
@@ -213,7 +224,7 @@ const DIAS_SEMANA = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb']
           <template v-if="itensNoDia(dia).length">
             <button
               v-for="item in itensNoDia(dia).slice(0, LIMITE_CELULA)"
-              :key="item.id"
+              :key="item.visitaId ?? `c-${item.id}`"
               class="w-full text-left rounded px-1.5 py-0.5 flex items-center gap-1.5 text-xs truncate hover:bg-default transition-colors"
               :class="isSameMonth(dia, mesAtual) ? 'text-highlighted' : 'text-muted'"
               @click="abrirEvento(item)"
@@ -221,6 +232,7 @@ const DIAS_SEMANA = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb']
               <span class="w-2 h-2 rounded-full shrink-0" :class="dotClass(item.status)" />
               <span class="font-medium shrink-0">{{ horaLocal(item.agendadoPara) }}</span>
               <span class="truncate">{{ item.clienteNome ?? item.titulo }}</span>
+              <span v-if="item.visitaNumero && item.visitaNumero > 1" class="shrink-0 text-muted">V{{ item.visitaNumero }}</span>
             </button>
 
             <!-- Overflow -->
@@ -237,7 +249,7 @@ const DIAS_SEMANA = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb']
 
       <!-- Rodapé: legenda de status -->
       <div class="flex flex-wrap gap-4 text-xs text-muted pt-1">
-        <div v-for="(meta, key) in { aberto: statusMeta('aberto'), atribuido: statusMeta('atribuido'), a_caminho: statusMeta('a_caminho'), em_atendimento: statusMeta('em_atendimento'), finalizado: statusMeta('finalizado'), fechado: statusMeta('fechado') }" :key="key" class="flex items-center gap-1.5">
+        <div v-for="(meta, key) in { aberto: statusMeta('aberto'), atribuido: statusMeta('atribuido'), a_caminho: statusMeta('a_caminho'), em_atendimento: statusMeta('em_atendimento'), pausado: statusMeta('pausado'), finalizado: statusMeta('finalizado'), fechado: statusMeta('fechado') }" :key="key" class="flex items-center gap-1.5">
           <span class="w-2 h-2 rounded-full" :class="dotClass(key as ChamadoStatus)" />
           {{ meta.label }}
         </div>
@@ -263,52 +275,82 @@ const DIAS_SEMANA = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb']
           <UBadge color="neutral" variant="outline">
             {{ eventoSelecionado.prioridade }}
           </UBadge>
+          <UBadge v-if="eventoSelecionado.visitaNumero && eventoSelecionado.visitaNumero > 1" color="info" variant="subtle">
+            Visita {{ eventoSelecionado.visitaNumero }}
+          </UBadge>
         </div>
 
         <!-- Título -->
         <div>
-          <p class="text-xs text-muted mb-0.5">Título</p>
-          <p class="text-sm font-medium">{{ eventoSelecionado.titulo }}</p>
+          <p class="text-xs text-muted mb-0.5">
+            Título
+          </p>
+          <p class="text-sm font-medium">
+            {{ eventoSelecionado.titulo }}
+          </p>
         </div>
 
         <!-- Horário agendado -->
         <div>
-          <p class="text-xs text-muted mb-0.5">Agendado para</p>
+          <p class="text-xs text-muted mb-0.5">
+            Agendado para
+          </p>
           <p class="text-sm font-medium">
             {{ format(parseISO(eventoSelecionado.agendadoPara), "dd/MM/yyyy 'às' HH:mm") }}
+            <span v-if="eventoSelecionado.duracaoPrevistaMin" class="text-muted font-normal">
+              • {{ eventoSelecionado.duracaoPrevistaMin }} min previstos
+            </span>
           </p>
         </div>
 
         <!-- Cliente -->
         <div v-if="eventoSelecionado.clienteNome">
-          <p class="text-xs text-muted mb-0.5">Cliente</p>
-          <p class="text-sm">{{ eventoSelecionado.clienteNome }}</p>
+          <p class="text-xs text-muted mb-0.5">
+            Cliente
+          </p>
+          <p class="text-sm">
+            {{ eventoSelecionado.clienteNome }}
+          </p>
         </div>
 
         <!-- Técnico -->
         <div v-if="eventoSelecionado.tecnicoNome">
-          <p class="text-xs text-muted mb-0.5">Técnico</p>
-          <p class="text-sm">{{ eventoSelecionado.tecnicoNome }}</p>
+          <p class="text-xs text-muted mb-0.5">
+            Técnico
+          </p>
+          <p class="text-sm">
+            {{ eventoSelecionado.tecnicoNome }}
+          </p>
         </div>
 
         <!-- Local -->
         <div v-if="enderecoResumido(eventoSelecionado)">
-          <p class="text-xs text-muted mb-0.5">Local</p>
-          <p class="text-sm">{{ enderecoResumido(eventoSelecionado) }}</p>
+          <p class="text-xs text-muted mb-0.5">
+            Local
+          </p>
+          <p class="text-sm">
+            {{ enderecoResumido(eventoSelecionado) }}
+          </p>
         </div>
 
         <!-- Formulário de reagendamento -->
         <template v-if="podeGerenciar && reagendando">
           <UDivider />
           <div class="flex flex-col gap-3">
-            <p class="text-sm font-semibold">Nova data e hora</p>
+            <p class="text-sm font-semibold">
+              Nova data e hora
+            </p>
             <UInput
               v-model="novaDataHora"
               type="datetime-local"
             />
             <div class="flex gap-2">
-              <UButton class="flex-1" @click="confirmarReagendar">Confirmar</UButton>
-              <UButton variant="ghost" class="flex-1" @click="reagendando = false">Cancelar</UButton>
+              <UButton class="flex-1" @click="confirmarReagendar">
+                Confirmar
+              </UButton>
+              <UButton variant="ghost" class="flex-1" @click="reagendando = false">
+                Cancelar
+              </UButton>
             </div>
           </div>
         </template>

@@ -6,6 +6,7 @@ import type { Period, Range } from '~/types'
 definePageMeta({ permission: 'dashboard.ver' })
 
 const { isNotificationsSlideoverOpen } = useDashboard()
+const { count: notificacoesCount } = useNotificacoes()
 
 const items = [[{
   label: 'Nova mensagem',
@@ -40,7 +41,12 @@ const period = ref<Period>('daily')
               square
               @click="isNotificationsSlideoverOpen = true"
             >
-              <UChip color="error" inset>
+              <UChip
+                color="error"
+                inset
+                :show="notificacoesCount > 0"
+                :text="notificacoesCount > 99 ? '99+' : notificacoesCount"
+              >
                 <UIcon name="i-lucide-bell" class="size-5 shrink-0" />
               </UChip>
             </UButton>
