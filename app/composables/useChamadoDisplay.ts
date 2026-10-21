@@ -60,6 +60,7 @@ const EVENT_LABEL: Record<string, string> = {
   rat_anexado: 'RAT anexada',
   rat_removido: 'RAT removida',
   line_item_alterado: 'Item financeiro alterado',
+  execucao_ajustada: 'Horas/km ajustados pelo gestor',
   financeiro_alterado: 'Financeiro alterado',
   pagamento_alterado: 'Pagamento alterado'
 }

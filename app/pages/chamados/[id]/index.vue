@@ -3,6 +3,7 @@ import type {
   AppConfig,
   Chamado,
   ChamadoEvent,
+  ChamadoLineItem,
   ChamadoRat,
   ChamadoVisita,
   ChamadoComentario,
@@ -832,6 +833,57 @@ const removeLine = (itemId: number) =>
     () => $api(`/chamados/${id}/line-items/${itemId}`, { method: 'DELETE' }),
     'Linha removida'
   )
+
+// ---- Ajuste de horas/km de visita finalizada (gestor) ----
+const execOpen = ref(false)
+const salvandoExec = ref(false)
+const execForm = reactive({
+  visitaId: null as number | null,
+  visitaNumero: 0,
+  horasTrabalhadas: 0,
+  kmDeslocamento: 0
+})
+const execValido = computed(
+  () =>
+    execForm.horasTrabalhadas >= 0
+    && execForm.horasTrabalhadas <= 1000
+    && execForm.kmDeslocamento >= 0
+    && execForm.kmDeslocamento <= 100000
+)
+/** Linha automática de execução (mão de obra/km) de uma visita finalizada: pode ser ajustada. */
+function visitaAjustavel(i: ChamadoLineItem): ChamadoVisita | null {
+  if (i.origem !== 'auto_snapshot' || !i.visitaId) return null
+  if (i.tipo !== 'deslocamento' && i.tipo !== 'servico') return null
+  const v = visitas.value.find(x => x.id === i.visitaId)
+  return v && v.status === 'finalizado' ? v : null
+}
+function abrirAjusteExecucao(v: ChamadoVisita) {
+  execForm.visitaId = v.id
+  execForm.visitaNumero = v.numero
+  execForm.horasTrabalhadas = Number(v.horasTrabalhadas ?? 0)
+  execForm.kmDeslocamento = Number(v.kmDeslocamento ?? 0)
+  execOpen.value = true
+}
+async function salvarAjusteExecucao() {
+  if (!execForm.visitaId || !execValido.value) return
+  salvandoExec.value = true
+  try {
+    await acao(
+      () =>
+        $api(`/chamados/${id}/visitas/${execForm.visitaId}/execucao`, {
+          method: 'PATCH',
+          body: {
+            horasTrabalhadas: execForm.horasTrabalhadas,
+            kmDeslocamento: execForm.kmDeslocamento
+          }
+        }),
+      'Horas/km ajustados'
+    )
+    execOpen.value = false
+  } finally {
+    salvandoExec.value = false
+  }
+}
 
 // ---- Pagamento ----
 const aprovar = () =>
@@ -1730,6 +1782,19 @@ async function removerRat(ratId: number, fileName: string) {
                         <span class="text-highlighted">{{
                           brl(i.valorTotal)
                         }}</span>
+                        <UButton
+                          v-if="
+                            podeFinGerenciar
+                              && !chamado.valoresCongeladosEm
+                              && visitaAjustavel(i)
+                          "
+                          icon="i-lucide-pencil"
+                          color="neutral"
+                          variant="ghost"
+                          size="xs"
+                          title="Ajustar horas/km desta visita"
+                          @click="abrirAjusteExecucao(visitaAjustavel(i)!)"
+                        />
                         <UButton
                           v-if="
                             podeFinGerenciar
@@ -2654,6 +2719,58 @@ async function removerRat(ratId: number, fileName: string) {
             :disabled="impostoForm.emiteNota && impostoForm.modo === 'manual' && !aliquotaValida"
             :loading="salvandoImposto"
             @click="salvarImposto"
+          />
+        </div>
+      </div>
+    </template>
+  </UModal>
+
+  <!-- Modal: ajuste de horas/km de visita finalizada -->
+  <UModal
+    v-model:open="execOpen"
+    :title="`Ajustar execução — Visita ${execForm.visitaNumero}`"
+  >
+    <template #body>
+      <div class="space-y-4">
+        <div class="grid grid-cols-2 gap-4">
+          <UFormField label="Horas trabalhadas">
+            <UInput
+              v-model.number="execForm.horasTrabalhadas"
+              type="number"
+              min="0"
+              max="1000"
+              step="0.25"
+              class="w-full"
+            />
+          </UFormField>
+          <UFormField label="KM de deslocamento">
+            <UInput
+              v-model.number="execForm.kmDeslocamento"
+              type="number"
+              min="0"
+              max="100000"
+              step="0.1"
+              class="w-full"
+            />
+          </UFormField>
+        </div>
+        <p class="text-xs text-muted">
+          As linhas automáticas de mão de obra e deslocamento desta visita são
+          recalculadas com as tarifas congeladas do técnico. Zerar o KM remove
+          a linha de deslocamento.
+        </p>
+        <div class="flex justify-end gap-2">
+          <UButton
+            label="Cancelar"
+            color="neutral"
+            variant="subtle"
+            @click="execOpen = false"
+          />
+          <UButton
+            label="Salvar"
+            :disabled="!execValido"
+            :loading="salvandoExec"
+            @click="salvarAjusteExecucao"
           />
         </div>
       </div>
